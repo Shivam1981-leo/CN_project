@@ -9,6 +9,7 @@ import threading
 import queue
 import time
 import base64
+import json
 import subprocess
 from datetime import datetime
 from typing import Any, Optional, Dict, List
@@ -312,13 +313,14 @@ class ModernChatGUI:
         # Sniffer Detail Text
         ttk.Label(self.sniffer_pane, text="Wire Payload (Hex + Plaintext):", font=("Segoe UI", 9, "bold"),
                   background=self.bg_panel).pack(anchor="w", pady=(2, 2))
-        self.sniff_detail = tk.Text(self.sniffer_pane, bg=self.bg_chat, fg=self.text_dim, font=("Consolas", 8.5),
+        self.sniff_detail = tk.Text(self.sniffer_pane, bg=self.bg_chat, fg=self.text_dim, font=("Consolas", 9),
                                     wrap="word", height=8, bd=0, padx=6, pady=6)
         self.sniff_detail.pack(fill="both", expand=True)
 
         self.live_packets_cache = []
-        self._refresh_users()
+        self.sniff_tree.bind("<<TreeviewSelect>>", self._on_sniff_packet_selected)
         self._start_gui_receiver()
+        self._refresh_users()
         self._schedule_auto_refresh()
 
     def _schedule_auto_refresh(self):
@@ -397,7 +399,11 @@ class ModernChatGUI:
 
         def bg_reg():
             success = self.client.register(username, pwd1)
-            self.ui_queue.put(("register_result", success))
+            if success:
+                login_success = self.client.login(username, pwd1)
+                self.ui_queue.put(("login_result", login_success))
+            else:
+                self.ui_queue.put(("register_result", False))
 
         threading.Thread(target=bg_reg, daemon=True).start()
 
@@ -472,72 +478,79 @@ class ModernChatGUI:
 
     def _process_ui_queue(self):
         """Consume queued events from background worker threads"""
-        while not self.ui_queue.empty():
-            try:
-                event_type, payload = self.ui_queue.get_nowait()
+        try:
+            while not self.ui_queue.empty():
+                try:
+                    event_type, payload = self.ui_queue.get_nowait()
+                except queue.Empty:
+                    break
 
-                if event_type == "login_result":
-                    if payload:
-                        self._show_chat_screen()
-                    else:
-                        self.auth_status_lbl.config(text="❌ Invalid username or password", foreground=self.error_color)
-
-                elif event_type == "register_result":
-                    if payload:
-                        messagebox.showinfo("Registration", "Account created successfully! Please login.")
-                        self.auth_status_lbl.config(text="✅ Registration successful! You can now login.", foreground=self.success_color)
-                    else:
-                        messagebox.showerror("Registration", "Registration failed. Username may already exist.")
-
-                elif event_type == "users_list":
-                    if self.chat_frame:
-                        active_peers = [u for u in payload if u != self.client.username]
-                        prev_sel = self.active_recipient
-                        self.user_listbox.delete(0, "end")
-                        if active_peers:
-                            for user in active_peers:
-                                self.user_listbox.insert("end", user)
-                            # Restore selection or auto-select first user
-                            if prev_sel and prev_sel in active_peers:
-                                idx = active_peers.index(prev_sel)
-                                self.user_listbox.selection_set(idx)
-                            else:
-                                self.user_listbox.selection_set(0)
-                                self._on_user_selected(None)
+                try:
+                    if event_type == "login_result":
+                        if payload:
+                            self._show_chat_screen()
                         else:
-                            self.user_listbox.insert("end", "(No other users online yet)")
-                            self.recipient_lbl.config(text="Waiting for another user to connect...", font=("Segoe UI", 11, "italic"))
-                            self.active_recipient = None
+                            self.auth_status_lbl.config(text="❌ Invalid username or password", foreground=self.error_color)
 
-                elif event_type == "chat_msg":
-                    sender, content = payload
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    if sender == "SYSTEM":
-                        self._append_chat(f"[{timestamp}] 📢 {content}", "system")
-                        self._refresh_users()
-                    else:
-                        self._append_chat(f"[{timestamp}] {sender}: {content}", "peer")
+                    elif event_type == "register_result":
+                        if payload:
+                            messagebox.showinfo("Registration", "Account created successfully! Please login.")
+                            self.auth_status_lbl.config(text="✅ Registration successful! You can now login.", foreground=self.success_color)
+                        else:
+                            messagebox.showerror("Registration", "Registration failed. Username may already exist.")
 
-                elif event_type == "file_received":
-                    sender, filename, is_valid, save_path = payload
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    status_text = "Verified ✅" if is_valid else "TAMPERED ❌"
-                    self._append_chat(
-                        f"[{timestamp}] 📎 Received '{filename}' from {sender} -> Saved to {save_path} [{status_text}]",
-                        "file"
-                    )
+                    elif event_type == "users_list":
+                        if self.chat_frame:
+                            users_data = payload or []
+                            active_peers = [u for u in users_data if u and u != self.client.username]
+                            prev_sel = self.active_recipient
+                            self.user_listbox.delete(0, "end")
+                            if active_peers:
+                                for user in active_peers:
+                                    self.user_listbox.insert("end", user)
+                                # Restore selection or auto-select first user
+                                if prev_sel and prev_sel in active_peers:
+                                    idx = active_peers.index(prev_sel)
+                                    self.user_listbox.selection_set(idx)
+                                else:
+                                    self.user_listbox.selection_set(0)
+                                    self._on_user_selected(None)
+                            else:
+                                self.user_listbox.insert("end", "(No other users online yet)")
+                                self.recipient_lbl.config(text="Waiting for another user to connect...", font=("Segoe UI", 11, "italic"))
+                                self.active_recipient = None
 
-                elif event_type == "live_packet":
-                    direction, mtype, length, raw_bytes, plain, valid = payload
-                    self._add_live_packet(direction, mtype, length, raw_bytes, plain, valid)
+                    elif event_type == "chat_msg":
+                        sender, content = payload
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+                        if sender == "SYSTEM":
+                            self._append_chat(f"[{timestamp}] 📢 {content}", "system")
+                            self._refresh_users()
+                        else:
+                            self._append_chat(f"[{timestamp}] {sender}: {content}", "peer")
 
-                elif event_type == "system_msg":
-                    self._append_chat(payload, "system")
+                    elif event_type == "file_received":
+                        sender, filename, is_valid, save_path = payload
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+                        status_text = "Verified ✅" if is_valid else "TAMPERED ❌"
+                        self._append_chat(
+                            f"[{timestamp}] 📎 Received '{filename}' from {sender} -> Saved to {save_path} [{status_text}]",
+                            "file"
+                        )
 
-            except queue.Empty:
-                break
+                    elif event_type == "live_packet":
+                        direction, mtype, length, raw_bytes, plain, valid = payload
+                        self._add_live_packet(direction, mtype, length, raw_bytes, plain, valid)
 
-        self.root.after(100, self._process_ui_queue)
+                    elif event_type == "system_msg":
+                        self._append_chat(payload, "system")
+
+                except Exception as inner_err:
+                    print(f"Error handling UI event '{event_type}': {inner_err}")
+
+        finally:
+            if getattr(self, 'root', None):
+                self.root.after(100, self._process_ui_queue)
 
     def _add_live_packet(self, direction: str, mtype: str, length: int, raw_bytes: bytes, plain: Any, valid: bool):
         """Append live packet to the in-app Wireshark sniffer tree"""
@@ -722,7 +735,7 @@ class ModernChatGUI:
         wire_paned.add(plain_box, weight=1)
         ttk.Label(plain_box, text="🔓 Application Layer (Memory Plaintext)", foreground=self.success_color,
                   font=("Segoe UI", 10, "bold"), background=self.bg_panel).pack(anchor="w", pady=(0, 5))
-        plain_text = tk.Text(plain_box, bg=self.bg_chat, fg=self.text_light, font=("Consolas", 9.5),
+        plain_text = tk.Text(plain_box, bg=self.bg_chat, fg=self.text_light, font=("Consolas", 10),
                              wrap="word", bd=0, padx=6, pady=6)
         plain_text.pack(fill="both", expand=True)
 
@@ -730,7 +743,7 @@ class ModernChatGUI:
         wire_paned.add(cipher_box, weight=1)
         ttk.Label(cipher_box, text="🔒 Network Wire (Wireshark Encrypted Capture)", foreground=self.accent,
                   font=("Segoe UI", 10, "bold"), background=self.bg_panel).pack(anchor="w", pady=(0, 5))
-        cipher_text = tk.Text(cipher_box, bg=self.bg_chat, fg=self.text_dim, font=("Consolas", 9.5),
+        cipher_text = tk.Text(cipher_box, bg=self.bg_chat, fg=self.text_dim, font=("Consolas", 10),
                               wrap="word", bd=0, padx=6, pady=6)
         cipher_text.pack(fill="both", expand=True)
 
