@@ -29,6 +29,15 @@ except (ImportError, ModuleNotFoundError):
 from common.protocol import MessageType, StatusCode
 from common.crypto_utils import verify_file_checksum
 
+try:
+    from tools.packet_tracer import ScenarioEngine, export_all_pcaps
+except ImportError:
+    try:
+        from src.tools.packet_tracer import ScenarioEngine, export_all_pcaps
+    except ImportError:
+        ScenarioEngine = None
+        export_all_pcaps = None
+
 
 class ModernChatGUI:
     """Modern Tkinter GUI for the ECCP Secure Client"""
@@ -156,7 +165,17 @@ class ModernChatGUI:
 
         # Status Label
         self.auth_status_lbl = ttk.Label(self.auth_frame, text="", style="SubHeader.TLabel")
-        self.auth_status_lbl.pack(pady=15)
+        self.auth_status_lbl.pack(pady=10)
+
+        # Bottom Tools Bar for Packet Tracing & Simulation
+        tools_frame = ttk.Frame(self.auth_frame, style="Main.TFrame")
+        tools_frame.pack(pady=10)
+
+        tracer_btn = ttk.Button(tools_frame, text="📡 Wireshark Packet Tracer", style="Modern.TButton", command=self._open_packet_inspector)
+        tracer_btn.pack(side="left", padx=6)
+
+        sim_btn = ttk.Button(tools_frame, text="🌐 Packet Flow Simulator", style="Accent.TButton", command=self._open_web_simulator)
+        sim_btn.pack(side="left", padx=6)
 
     def _show_chat_screen(self):
         """Render authenticated chat view"""
@@ -177,7 +196,13 @@ class ModernChatGUI:
         tls_badge.pack(side="left", padx=10)
 
         logout_btn = ttk.Button(top_bar, text="Logout", style="Modern.TButton", command=self._on_logout)
-        logout_btn.pack(side="right", padx=10)
+        logout_btn.pack(side="right", padx=5)
+
+        sim_btn = ttk.Button(top_bar, text="🌐 Flow Simulator", style="Accent.TButton", command=self._open_web_simulator)
+        sim_btn.pack(side="right", padx=5)
+
+        packet_btn = ttk.Button(top_bar, text="📡 Packet Tracer", style="Modern.TButton", command=self._open_packet_inspector)
+        packet_btn.pack(side="right", padx=5)
 
         # Body Pane
         body_paned = ttk.PanedWindow(self.chat_frame, orient="horizontal")
@@ -428,6 +453,223 @@ class ModernChatGUI:
                 break
 
         self.root.after(100, self._process_ui_queue)
+
+    def _open_web_simulator(self):
+        """Launch the interactive web-based packet flow simulator"""
+        sim_script = os.path.join(_root_dir, "src", "tools", "run_simulator.py")
+        html_file = os.path.join(_root_dir, "src", "tools", "packet_visualizer.html")
+
+        try:
+            subprocess.Popen([sys.executable, sim_script], cwd=_root_dir)
+            if self.chat_frame:
+                self._append_chat("🌐 Launched Interactive Packet Simulator at http://127.0.0.1:8080", "system")
+        except Exception:
+            try:
+                import webbrowser
+                webbrowser.open("file://" + os.path.abspath(html_file))
+            except Exception as e:
+                messagebox.showerror("Simulator Error", f"Could not launch simulator: {e}")
+
+    def _open_packet_inspector(self):
+        """Open embedded desktop Wireshark Packet Tracer & Dissector window"""
+        if not ScenarioEngine:
+            messagebox.showerror("Packet Tracer", "Packet tracer scenario engine not found.")
+            return
+
+        win = tk.Toplevel(self.root)
+        win.title("📡 ECCP Wireshark Packet Tracer & Protocol Dissector")
+        win.geometry("960x650")
+        win.minsize(820, 520)
+        win.configure(bg=self.bg_dark)
+
+        # Scenario definitions
+        scenarios = {
+            "1. TLS 1.3 Handshake & Key Exchange (TCP SYN/ACK + Client/Server Hello)": ScenarioEngine.get_tls13_handshake_scenario,
+            "2. Secure Authentication (bcrypt Hash over TLS + Session Token)": ScenarioEngine.get_auth_scenario,
+            "3. End-to-End Encrypted Chat (Alice → Server → Bob with HMAC)": ScenarioEngine.get_messaging_scenario,
+            "4. Secure File Transfer (Chunked Transmission + SHA-256)": ScenarioEngine.get_file_transfer_scenario,
+            "5. MITM Attack & Integrity Defense (Tampered Packet Detected)": ScenarioEngine.get_mitm_attack_scenario
+        }
+
+        # Top Control Bar
+        ctl_bar = ttk.Frame(win, style="Panel.TFrame", padding=10)
+        ctl_bar.pack(fill="x", side="top")
+
+        ttk.Label(ctl_bar, text="Scenario:", font=("Segoe UI", 10, "bold"), background=self.bg_panel).pack(side="left", padx=(0, 6))
+
+        scen_combo = ttk.Combobox(ctl_bar, values=list(scenarios.keys()), state="readonly", width=55)
+        scen_combo.current(2)  # Default: Scenario 3
+        scen_combo.pack(side="left", padx=(0, 10))
+
+        export_btn = ttk.Button(ctl_bar, text="📥 Export PCAP", style="Modern.TButton")
+        export_btn.pack(side="right", padx=5)
+
+        web_btn = ttk.Button(ctl_bar, text="🌐 Web Simulator", style="Accent.TButton", command=self._open_web_simulator)
+        web_btn.pack(side="right", padx=5)
+
+        # Paned Window (Top: Packet Table, Bottom: Inspection & Hex)
+        main_paned = ttk.PanedWindow(win, orient="vertical")
+        main_paned.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # --- Top Table Pane ---
+        table_frame = ttk.Frame(main_paned, style="Panel.TFrame", padding=5)
+        main_paned.add(table_frame, weight=3)
+
+        cols = ("no", "time", "src", "dst", "proto", "len", "info")
+        tree = ttk.Treeview(table_frame, columns=cols, show="headings", selectmode="browse")
+        tree.heading("no", text="No.")
+        tree.heading("time", text="Time (s)")
+        tree.heading("src", text="Source")
+        tree.heading("dst", text="Destination")
+        tree.heading("proto", text="Protocol")
+        tree.heading("len", text="Length")
+        tree.heading("info", text="Info")
+
+        tree.column("no", width=45, anchor="center")
+        tree.column("time", width=75, anchor="center")
+        tree.column("src", width=140)
+        tree.column("dst", width=140)
+        tree.column("proto", width=75, anchor="center")
+        tree.column("len", width=55, anchor="center")
+        tree.column("info", width=380)
+
+        vsb = ttk.Scrollbar(table_frame, orient="vertical", command=tree.yview)
+        tree.configure(yscrollcommand=vsb.set)
+        tree.pack(side="left", fill="both", expand=True)
+        vsb.pack(side="right", fill="y")
+
+        # --- Bottom Notebook Pane ---
+        bottom_frame = ttk.Frame(main_paned, style="Panel.TFrame", padding=5)
+        main_paned.add(bottom_frame, weight=4)
+
+        notebook = ttk.Notebook(bottom_frame)
+        notebook.pack(fill="both", expand=True)
+
+        # Tab 1: Layer Dissection
+        dpi_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=10)
+        notebook.add(dpi_tab, text="  Deep Packet Inspection (Layers)  ")
+
+        dpi_text = tk.Text(dpi_tab, bg=self.bg_chat, fg=self.text_light, font=("Consolas", 10),
+                           wrap="word", bd=0, padx=8, pady=8)
+        dpi_text.pack(fill="both", expand=True)
+        dpi_text.tag_configure("header", foreground=self.accent, font=("Consolas", 10, "bold"))
+        dpi_text.tag_configure("highlight", foreground=self.success_color)
+        dpi_text.tag_configure("alert", foreground=self.error_color, font=("Consolas", 10, "bold"))
+
+        # Tab 2: Wire Comparison
+        wire_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=10)
+        notebook.add(wire_tab, text="  Wire Comparison (Plaintext vs Ciphertext)  ")
+
+        wire_paned = ttk.PanedWindow(wire_tab, orient="horizontal")
+        wire_paned.pack(fill="both", expand=True)
+
+        plain_box = ttk.Frame(wire_paned, style="Panel.TFrame", padding=5)
+        wire_paned.add(plain_box, weight=1)
+        ttk.Label(plain_box, text="🔓 Application Layer (Memory Plaintext)", foreground=self.success_color,
+                  font=("Segoe UI", 10, "bold"), background=self.bg_panel).pack(anchor="w", pady=(0, 5))
+        plain_text = tk.Text(plain_box, bg=self.bg_chat, fg=self.text_light, font=("Consolas", 9.5),
+                             wrap="word", bd=0, padx=6, pady=6)
+        plain_text.pack(fill="both", expand=True)
+
+        cipher_box = ttk.Frame(wire_paned, style="Panel.TFrame", padding=5)
+        wire_paned.add(cipher_box, weight=1)
+        ttk.Label(cipher_box, text="🔒 Network Wire (Wireshark Encrypted Capture)", foreground=self.accent,
+                  font=("Segoe UI", 10, "bold"), background=self.bg_panel).pack(anchor="w", pady=(0, 5))
+        cipher_text = tk.Text(cipher_box, bg=self.bg_chat, fg=self.text_dim, font=("Consolas", 9.5),
+                              wrap="word", bd=0, padx=6, pady=6)
+        cipher_text.pack(fill="both", expand=True)
+
+        # Tab 3: Hex Dump
+        hex_tab = ttk.Frame(notebook, style="Panel.TFrame", padding=10)
+        notebook.add(hex_tab, text="  Wireshark Hex & ASCII Dump  ")
+
+        hex_text = tk.Text(hex_tab, bg="#0b0d14", fg="#38bdf8", font=("Consolas", 10),
+                           wrap="none", bd=0, padx=10, pady=10)
+        hex_vsb = ttk.Scrollbar(hex_tab, orient="vertical", command=hex_text.yview)
+        hex_text.configure(yscrollcommand=hex_vsb.set)
+        hex_text.pack(side="left", fill="both", expand=True)
+        hex_vsb.pack(side="right", fill="y")
+
+        current_frames = []
+
+        def load_scenario(scen_name):
+            nonlocal current_frames
+            tree.delete(*tree.get_children())
+            func = scenarios[scen_name]
+            current_frames = func()
+
+            for f in current_frames:
+                t_str = f"{f.timestamp - current_frames[0].timestamp:0.4f}"
+                src_str = f"{f.src_ip}:{f.src_port}" if f.src_port else f.src_ip
+                dst_str = f"{f.dst_ip}:{f.dst_port}" if f.dst_port else f.dst_ip
+                tree.insert("", "end", iid=str(f.frame_num),
+                            values=(f.frame_num, t_str, src_str, dst_str, f.protocol, f.length, f.info))
+
+            if current_frames:
+                tree.selection_set(str(current_frames[0].frame_num))
+                on_select_packet(None)
+
+        def on_select_packet(event):
+            sel = tree.selection()
+            if not sel:
+                return
+            frame_num = int(sel[0])
+            matched = [f for f in current_frames if f.frame_num == frame_num]
+            if not matched:
+                return
+            pkt = matched[0]
+
+            # 1. Update DPI text
+            dpi_text.config(state="normal")
+            dpi_text.delete("1.0", "end")
+            dpi_text.insert("end", f"Frame #{pkt.frame_num}: {pkt.info}\n\n", "header")
+
+            for layer, content in pkt.layers.items():
+                is_alert = "ATTACK" in pkt.protocol or "SECURITY" in pkt.protocol
+                tag = "alert" if is_alert else "header"
+                dpi_text.insert("end", f"▼ {layer}\n", tag)
+                if isinstance(content, dict):
+                    for k, v in content.items():
+                        dpi_text.insert("end", f"    • {k}: {v}\n")
+                else:
+                    dpi_text.insert("end", f"    {content}\n")
+                dpi_text.insert("end", "\n")
+            dpi_text.config(state="disabled")
+
+            # 2. Update Wire Comparison
+            plain_text.config(state="normal")
+            plain_text.delete("1.0", "end")
+            plain_text.insert("end", pkt.plain_payload or "(No application plaintext payload)")
+            plain_text.config(state="disabled")
+
+            cipher_text.config(state="normal")
+            cipher_text.delete("1.0", "end")
+            cipher_msg = (
+                f"[TLS 1.3 Record - Length: {pkt.length} Bytes]\n"
+                f"Protocol: {pkt.protocol} | Endpoints: {pkt.src_ip}:{pkt.src_port} -> {pkt.dst_ip}:{pkt.dst_port}\n\n"
+                f"Wire Payload (AES-256-GCM Encrypted Ciphertext):\n\n"
+                f"{pkt.get_hex_dump()}"
+            )
+            cipher_text.insert("end", cipher_msg)
+            cipher_text.config(state="disabled")
+
+            # 3. Update Hex Dump
+            hex_text.config(state="normal")
+            hex_text.delete("1.0", "end")
+            hex_text.insert("end", pkt.get_hex_dump())
+            hex_text.config(state="disabled")
+
+        def on_export_pcaps():
+            if export_all_pcaps:
+                p_dir = os.path.join(_root_dir, "pcaps")
+                gen = export_all_pcaps(p_dir)
+                messagebox.showinfo("Export PCAPs", f"Successfully exported {len(gen)} PCAP files to:\n{p_dir}\n\nYou can now open them directly in Wireshark!")
+
+        scen_combo.bind("<<ComboboxSelected>>", lambda e: load_scenario(scen_combo.get()))
+        tree.bind("<<TreeviewSelect>>", on_select_packet)
+        export_btn.config(command=on_export_pcaps)
+
+        load_scenario(scen_combo.get())
 
     def _on_logout(self):
         """Handle logout action"""

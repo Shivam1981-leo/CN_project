@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECCP Network Simulator & Wireshark Packet Tracer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0f111a;
+      --bg-card: #181b28;
+      --bg-panel: #1e2235;
+      --bg-table-alt: #141724;
+      --border-color: #2b3149;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --purple: #c084fc;
+      --green: #4ade80;
+      --amber: #fbbf24;
+      --red: #f87171;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --proto-tcp: #38bdf8;
+      --proto-tls: #c084fc;
+      --proto-eccp: #4ade80;
+      --proto-attack: #f87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header Bar */
+    header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      font-size: 24px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .badge-tls {
+      background: rgba(192, 132, 252, 0.15);
+      color: var(--purple);
+      border: 1px solid rgba(192, 132, 252, 0.3);
+    }
+
+    .badge-hmac {
+      background: rgba(74, 222, 128, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+    }
+
+    /* Scenario & Controls Toolbar */
+    .toolbar {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .scenario-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .scenario-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    select, button {
+      font-family: inherit;
+      font-size: 13px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    select {
+      background: var(--bg-card);
+      color: var(--text-main);
+      padding: 6px 12px;
+      font-weight: 500;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+    }
+
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn {
+      padding: 6px 12px;
+      font-weight: 600;
+      background: var(--bg-card);
+      color: var(--text-main);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: #252b40;
+      border-color: var(--accent);
+    }
+
+    .btn-primary {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+    }
+
+    .btn-primary:hover {
+      background: #0369a1;
+    }
+
+    .btn-download {
+      background: rgba(74, 222, 128, 0.15);
+      color: var(--green);
+      border-color: rgba(74, 222, 128, 0.4);
+    }
+
+    .btn-download:hover {
+      background: rgba(74, 222, 128, 0.25);
+    }
+
+    .speed-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Main Grid Layout */
+    .app-main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 240px 1fr;
+      gap: 1px;
+      background: var(--border-color);
+      overflow: hidden;
+    }
+
+    /* Simulation Canvas Pane */
+    .sim-panel {
+      grid-column: 1 / -1;
+      background: var(--bg-dark);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #sim-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .sim-status-bar {
+      position: absolute;
+      bottom: 8px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .sim-status-pill {
+      background: rgba(24, 27, 40, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-color);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .status-dot.animating {
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; }
+      50% { opacity: 1; }
+      100% { opacity: 0.4; }
+    }
+
+    /* Wireshark Packet Table Pane */
+    .trace-panel {
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 8px 16px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .table-container {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: auto;
+    }
+
+    table.wireshark-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Fira Code', monospace;
+      font-size: 11.5px;
+    }
+
+    table.wireshark-table th {
+      position: sticky;
+      top: 0;
+      background: #121520;
+      color: var(--text-muted);
+      text-align: left;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 600;
+      white-space: nowrap;
+      user-select: none;
+    }
+
+    table.wireshark-table td {
+      padding: 5px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      white-space: nowrap;
+      color: #cbd5e1;
+    }
+
+    table.wireshark-table tr {
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    table.wireshark-table tr:hover {
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    table.wireshark-table tr.active-row {
+      background: rgba(56, 189, 248, 0.22) !important;
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    table.wireshark-table tr.highlight-flight {
+      background: rgba(192, 132, 252, 0.25) !important;
+      animation: highlightRow 1.2s infinite alternate;
+    }
+
+    @keyframes highlightRow {
+      from { background: rgba(192, 132, 252, 0.15); }
+      to { background: rgba(192, 132, 252, 0.35); }
+    }
+
+    .proto-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 10.5px;
+    }
+
+    .proto-TCP { background: rgba(56, 189, 248, 0.2); color: var(--proto-tcp); }
+    .proto-TLSv1_3 { background: rgba(192, 132, 252, 0.2); color: var(--proto-tls); }
+    .proto-SECURITY { background: rgba(74, 222, 128, 0.2); color: var(--green); }
+    .proto-ATTACK { background: rgba(248, 113, 113, 0.2); color: var(--red); }
+
+    /* Inspection Pane (Tabs: DPI Layers, Wire Plain/Cipher, Hex Dump) */
+    .detail-panel {
+      background: var(--bg-card);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .tabs {
+      display: flex;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      padding: 8px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: var(--bg-card);
+    }
+
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Layer Tree */
+    .layer-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    .layer-title {
+      padding: 8px 12px;
+      background: #141724;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .layer-body {
+      padding: 8px 12px;
+      font-family: 'Fira Code', monospace;
+      font-size: 11.5px;
+      line-height: 1.6;
+      color: #cbd5e1;
+    }
+
+    /* Wire Compare Card */
+    .wire-compare-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      height: 100%;
+    }
+
+    .wire-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .wire-box-title {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .wire-pre {
+      flex: 1;
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      background: #10121d;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #94a3b8;
+    }
+
+    /* Hex Dump View */
+    .hex-dump-view {
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      background: #0b0d14;
+      padding: 12px;
+      border-radius: 6px;
+      white-space: pre;
+      line-height: 1.5;
+      color: #38bdf8;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🌐</div>
+      <div>
+        <div class="brand-title">ECCP Protocol Simulator & Wireshark Packet Tracer</div>
+        <div class="brand-subtitle">Encrypted Client-Server Communication Framework (TLS 1.3 + HMAC-SHA256)</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="badge badge-tls">🔒 TLS 1.3 Cipher: AES-256-GCM</div>
+      <div class="badge badge-hmac">🛡️ HMAC: SHA-256 Verified</div>
+    </div>
+  </header>
+
+  <!-- Controls Toolbar -->
+  <div class="toolbar">
+    <div class="scenario-picker">
+      <span class="scenario-label">Scenario:</span>
+      <select id="scenario-select">
+        <option value="1">1. TLS 1.3 Handshake & Key Exchange (TCP SYN/ACK + Client/Server Hello)</option>
+        <option value="2">2. Secure Authentication (bcrypt Hash over TLS + Session Token)</option>
+        <option value="3" selected>3. End-to-End Encrypted Chat (Alice → Server → Bob with HMAC)</option>
+        <option value="4">4. Secure File Transfer (Chunked Transmission + SHA-256)</option>
+        <option value="5">5. MITM Attack & Integrity Defense (Tampered Packet Detected & Dropped)</option>
+      </select>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" id="btn-play">▶ Play Simulation</button>
+      <button class="btn" id="btn-pause">⏸ Pause</button>
+      <button class="btn" id="btn-step">⏭ Step</button>
+      <button class="btn" id="btn-reset">↺ Reset</button>
+    </div>
+
+    <div class="speed-control">
+      <span>Speed:</span>
+      <select id="speed-select">
+        <option value="0.5">0.5x (Slow Motion)</option>
+        <option value="1.0" selected>1.0x (Normal)</option>
+        <option value="2.0">2.0x (Fast)</option>
+        <option value="4.0">4.0x (Hyper)</option>
+      </select>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-download" id="btn-download-pcap">📥 Download Wireshark .PCAP</button>
+    </div>
+  </div>
+
+  <!-- Main View -->
+  <div class="app-main">
+    <!-- Visual Animation Canvas -->
+    <div class="sim-panel">
+      <canvas id="sim-canvas"></canvas>
+      <div class="sim-status-bar">
+        <div class="sim-status-pill">
+          <div class="status-dot animating" id="anim-dot"></div>
+          <span id="sim-status-text">Ready to simulate scenario. Click 'Play' or select a packet.</span>
+        </div>
+        <div class="sim-status-pill">
+          <span id="flight-detail-text">Packets: 0/0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Wireshark Packet Table -->
+    <div class="trace-panel">
+      <div class="panel-header">
+        <span>Wireshark Packet Trace Stream</span>
+        <span id="packet-count-badge">0 packets</span>
+      </div>
+      <div class="table-container">
+        <table class="wireshark-table" id="packet-table">
+          <thead>
+            <tr>
+              <th style="width: 45px;">No.</th>
+              <th style="width: 75px;">Time (s)</th>
+              <th style="width: 140px;">Source</th>
+              <th style="width: 140px;">Destination</th>
+              <th style="width: 80px;">Protocol</th>
+              <th style="width: 55px;">Length</th>
+              <th>Info</th>
+            </tr>
+          </thead>
+          <tbody id="packet-tbody">
+            <!-- Populated via Javascript -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Packet Inspection & Deep Analysis -->
+    <div class="detail-panel">
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="tab-dpi">Deep Packet Inspection (DPI)</button>
+        <button class="tab-btn" data-tab="tab-wire">Wire Comparison (Plaintext vs Ciphertext)</button>
+        <button class="tab-btn" data-tab="tab-hex">Wireshark Hex & ASCII Dump</button>
+      </div>
+
+      <!-- Tab 1: DPI Layers -->
+      <div class="tab-content active" id="tab-dpi">
+        <div id="dpi-layers-container">
+          <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 40px;">
+            Select any packet in the Wireshark table above to dissect its protocol layers.
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Wire Comparison -->
+      <div class="tab-content" id="tab-wire">
+        <div class="wire-compare-grid">
+          <div class="wire-box">
+            <div class="wire-box-title" style="color: var(--green);">
+              <span>🔓 Application Layer (Internal Memory / Plaintext)</span>
+            </div>
+            <pre class="wire-pre" id="wire-plain-content">No packet selected.</pre>
+          </div>
+          <div class="wire-box">
+            <div class="wire-box-title" style="color: var(--purple);">
+              <span>🔒 Network Wire Sniffer (Wireshark Capture / Ciphertext)</span>
+            </div>
+            <pre class="wire-pre" id="wire-cipher-content">No packet selected.</pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: Hex Dump -->
+      <div class="tab-content" id="tab-hex">
+        <div class="hex-dump-view" id="hex-dump-content">0000   No packet selected.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Embedded Scenarios Data
+    const SCENARIOS = {
+      "1": {
+        title: "TLS 1.3 Handshake & Key Exchange",
+        pcap_file: "1_tls13_handshake.pcap",
+        packets: [
+          {
+            frame_num: 1, time: 0.0000, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "alice", to_node: "server", proto: "TCP", length: 54,
+            info: "54321 → 5000 [SYN] Seq=0 Win=65535 Len=0 MSS=65495",
+            layers: {
+              "Frame 1": "54 bytes on wire (432 bits), captured on Loopback",
+              "Ethernet II": "Src: 00:1a:2b:3c:4d:5e, Dst: 5e:4d:3c:2b:1a:00, Type: IPv4 (0x0800)",
+              "Internet Protocol Version 4": "Src: 127.0.0.1, Dst: 127.0.0.1, Header Len: 20 bytes, TTL: 64, Protocol: TCP (6)",
+              "Transmission Control Protocol": "Src Port: 54321, Dst Port: 5000, Seq: 0, Flags: 0x002 [SYN], Window: 65535"
+            },
+            plain: "TCP SYN Connection Initiation\nClient requests connection to TLS server port 5000.",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   00 28 00 65 40 00 40 06  3b e7 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  42 40 00 00 00 00 50 02\n0030   fa f0 a8 72 00 00"
+          },
+          {
+            frame_num: 2, time: 0.0008, src: "127.0.0.1:5000", dst: "127.0.0.1:54321",
+            from_node: "server", to_node: "alice", proto: "TCP", length: 54,
+            info: "5000 → 54321 [SYN, ACK] Seq=0 Ack=1 Win=65535 Len=0 MSS=65495",
+            layers: {
+              "Frame 2": "54 bytes on wire",
+              "Transmission Control Protocol": "Src Port: 5000, Dst Port: 54321, Seq: 0, Ack: 1, Flags: 0x012 [SYN, ACK]"
+            },
+            plain: "TCP SYN-ACK\nServer acknowledges connection request and confirms port 5000 is open.",
+            hex: "0000   00 1a 2b 3c 4d 5e 5e 4d  3c 2b 1a 00 08 00 45 00\n0010   00 28 00 c9 40 00 40 06  3b 83 7f 00 00 01 7f 00\n0020   00 01 13 88 d4 31 00 1e  84 80 00 0f 42 41 50 12\n0030   fa f0 a8 72 00 00"
+          },
+          {
+            frame_num: 3, time: 0.0014, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "alice", to_node: "server", proto: "TCP", length: 54,
+            info: "54321 → 5000 [ACK] Seq=1 Ack=1 Win=65535 Len=0",
+            layers: {
+              "Transmission Control Protocol": "Src Port: 54321, Dst Port: 5000, Seq: 1, Ack: 1, Flags: 0x010 [ACK]"
+            },
+            plain: "TCP ACK\n3-Way Handshake established. Reliable TCP transport stream ready.",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   00 28 00 66 40 00 40 06  3b e6 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  42 41 00 1e 84 81 50 10\n0030   fa f0 32 c3 00 00"
+          },
+          {
+            frame_num: 4, time: 0.0035, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "alice", to_node: "server", proto: "TLSv1.3", length: 193,
+            info: "Client Hello (Cipher Suites: TLS_AES_256_GCM_SHA384, KeyShare: X25519)",
+            layers: {
+              "Transport Layer Security": "TLSv1.3 Record Layer: Handshake Protocol: Client Hello",
+              "Handshake Protocol: Client Hello": {
+                "Version": "TLS 1.2 (0x0303) [Negotiates TLS 1.3 via Supported Versions]",
+                "Random": "1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d1a2b3c4d",
+                "Cipher Suites": "TLS_AES_256_GCM_SHA384, TLS_CHACHA20_POLY1305_SHA256, TLS_AES_128_GCM_SHA256",
+                "Extension: supported_versions": "TLS 1.3 (0x0304)",
+                "Extension: key_share": "ECDHE Key Share on Curve X25519 (Ephemeral Public Key Exchange)"
+              }
+            },
+            plain: "TLS 1.3 Client Hello Initiated.\nAlice offers high-security AEAD ciphers (AES-256-GCM) and generates an ECDHE Key Share.",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   00 b3 00 67 40 00 40 06  3b dc 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  42 41 00 1e 84 81 50 18\n0030   fa f0 7a bb 00 00 16 03  01 01 fc 01 00 01 f8 03\n0040   03 1a 2b 3c 4d 1a 2b 3c  4d 1a 2b 3c 4d 1a 2b 3c\n0050   4d 20 aa aa aa aa aa aa  aa aa 00 08 13 02 13 03"
+          },
+          {
+            frame_num: 5, time: 0.0078, src: "127.0.0.1:5000", dst: "127.0.0.1:54321",
+            from_node: "server", to_node: "alice", proto: "TLSv1.3", length: 1392,
+            info: "Server Hello, Change Cipher Spec, Application Data (Encrypted Handshake: Certificate, Finished)",
+            layers: {
+              "TLSv1.3 Record Layer: Server Hello": {
+                "Selected Cipher Suite": "TLS_AES_256_GCM_SHA384 (0x1302)",
+                "Extension: key_share": "Server ECDHE Key Share (Group: X25519)"
+              },
+              "TLSv1.3 Record Layer: Change Cipher Spec": "Legacy Compatibility Flag",
+              "TLSv1.3 Encrypted Handshake Message": "Encrypted Certificate (certs/server.crt), CertificateVerify (RSA Signature), Finished"
+            },
+            plain: "TLS 1.3 Server Hello.\nServer selects TLS_AES_256_GCM_SHA384 and transmits X.509 certificate under encrypted handshake.",
+            hex: "0000   00 1a 2b 3c 4d 5e 5e 4d  3c 2b 1a 00 08 00 45 00\n0010   05 60 00 ca 40 00 40 06  36 ea 7f 00 00 01 7f 00\n0020   00 01 13 88 d4 31 00 1e  84 81 00 0f 42 cc 50 18\n0030   fa f0 9e 1c 00 00 16 03  03 00 7a 02 00 00 76 03\n0040   03 fe dc ba 98 fe dc ba  98 20 aa aa aa aa 13 02"
+          },
+          {
+            frame_num: 6, time: 0.0095, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "alice", to_node: "server", proto: "TLSv1.3", length: 111,
+            info: "Application Data (Encrypted Client Finished) [TLS 1.3 Handshake Complete ✅]",
+            layers: {
+              "TLSv1.3 Record Layer: Application Data": "Content Type: Application Data (23), Encrypted Finished (AES-256-GCM)",
+              "Session Status": "Full mutual symmetric keys derived. Perfect Forward Secrecy (PFS) active."
+            },
+            plain: "TLS 1.3 Handshake Finished.\nSecure cryptographic tunnel active. All subsequent application data is encrypted.",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   00 61 00 68 40 00 40 06  3b 2d 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  42 cc 00 1e 89 b5 50 18\n0030   fa f0 bb 21 00 00 17 03  03 00 34 33 33 33 33 33"
+          }
+        ]
+      },
+      "2": {
+        title: "Secure Authentication & Token Issuance",
+        pcap_file: "2_user_auth_session.pcap",
+        packets: [
+          {
+            frame_num: 1, time: 0.0000, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "alice", to_node: "server", proto: "TLSv1.3", length: 195,
+            info: "Application Data (Encrypted ECCP: AUTH_REQUEST for user 'Alice')",
+            layers: {
+              "TLSv1.3 Record Layer": "Application Data (23), Length: 141 bytes (AES-256-GCM Ciphertext)",
+              "Decrypted ECCP Wire Format": {
+                "Protocol Header": "ECC (Encrypted Client Communication Protocol)",
+                "Message Type": "0x01 (AUTH_REQUEST)",
+                "Integrity HMAC": "4b61fa93012bb298... (HMAC-SHA256)",
+                "Payload Fields": "username='Alice', password_hash=<bcrypt-hash>, timestamp='2026-10-21T20:30:00'"
+              }
+            },
+            plain: "{\n  \"type\": \"AUTH_REQUEST\",\n  \"username\": \"Alice\",\n  \"password_hash\": \"$2b$12$K8y4V...hashed_password\",\n  \"timestamp\": \"2026-10-21T20:30:00\"\n}",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   00 c3 00 6e 40 00 40 06  3b c7 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  43 a1 00 1e 89 b5 50 18\n0030   fa f0 e4 a1 00 00 17 03  03 00 88 8f 3a 2c b4 99\n0040   44 44 44 44 44 44 44 44  44 44 44 44 44 44 44 44"
+          },
+          {
+            frame_num: 2, time: 0.0012, src: "127.0.0.1:5000", dst: "127.0.0.1:54321",
+            from_node: "server", to_node: "alice", proto: "TCP", length: 54,
+            info: "5000 → 54321 [ACK] Seq=2003800 Ack=1002641",
+            layers: {
+              "Transmission Control Protocol": "TCP Layer Acknowledgment of Auth Request payload"
+            },
+            plain: "TCP Layer ACK from Server.",
+            hex: "0000   00 1a 2b 3c 4d 5e 5e 4d  3c 2b 1a 00 08 00 45 00\n0010   00 28 00 d2 40 00 40 06  3b 7a 7f 00 00 01 7f 00\n0020   00 01 13 88 d4 31 00 1e  89 b5 00 0f 44 2f 50 10\n0030   fa f0 c1 88 00 00"
+          },
+          {
+            frame_num: 3, time: 0.0045, src: "127.0.0.1:5000", dst: "127.0.0.1:54321",
+            from_node: "server", to_node: "alice", proto: "TLSv1.3", length: 183,
+            info: "Application Data (Encrypted ECCP: AUTH_RESPONSE - Status: SUCCESS, Token Issued ✅)",
+            layers: {
+              "TLSv1.3 Record Layer": "Application Data (23), Length: 129 bytes (AES-256-GCM Ciphertext)",
+              "Decrypted ECCP Wire Format": {
+                "Message Type": "0x02 (AUTH_RESPONSE)",
+                "Status Code": "0x00 (SUCCESS)",
+                "Session Token": "tok_9f3a8b1c7e2d405a_eccp_alice",
+                "Token Expiry": "3600 seconds",
+                "Integrity HMAC": "Verified Valid (32 Bytes)"
+              }
+            },
+            plain: "{\n  \"type\": \"AUTH_RESPONSE\",\n  \"status\": \"SUCCESS (0x00)\",\n  \"session_token\": \"tok_9f3a8b1c7e2d405a_eccp_alice\",\n  \"expires_in\": 3600\n}",
+            hex: "0000   00 1a 2b 3c 4d 5e 5e 4d  3c 2b 1a 00 08 00 45 00\n0010   00 b7 00 d3 40 00 40 06  3b 8b 7f 00 00 01 7f 00\n0020   00 01 13 88 d4 31 00 1e  89 b5 00 0f 44 2f 50 18\n0030   fa f0 42 19 00 00 17 03  03 00 7c c2 19 e4 55 55\n0040   55 55 55 55 55 55 55 55  55 55 55 55 55 55 55 55"
+          }
+        ]
+      },
+      "3": {
+        title: "End-to-End Encrypted Chat (Alice → Server → Bob)",
+        pcap_file: "3_encrypted_chat.pcap",
+        packets: [
+          {
+            frame_num: 1, time: 0.0000, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "alice", to_node: "server", proto: "TLSv1.3", length: 219,
+            info: "Application Data (Encrypted ECCP: MESSAGE_SEND to 'Bob' with HMAC-SHA256)",
+            layers: {
+              "TLSv1.3 Record Layer": "Application Data (23) - 165 Bytes Ciphertext",
+              "ECCP Framing Breakdown": {
+                "Magic Header": "ECC (4 bytes)",
+                "Message ID": "UUID4 (16 bytes)",
+                "HMAC-SHA256": "8f23d10ab2... (32 bytes cryptographic authenticity tag)",
+                "Data Length": "128 bytes JSON payload"
+              }
+            },
+            plain: "{\n  \"type\": \"MESSAGE_SEND\",\n  \"recipient\": \"Bob\",\n  \"content\": \"Hey Bob! Here is the secret encryption design plan for our CN Mini Project.\",\n  \"session_token\": \"tok_9f3a8b1c7e2d405a\",\n  \"timestamp\": \"2026-10-21T20:31:15\"\n}",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   00 db 00 78 40 00 40 06  3b a8 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  55 10 00 1e 90 20 50 18\n0030   fa f0 e9 7f 00 00 17 03  03 00 a0 3a f1 77 77 77\n0040   77 77 77 77 77 77 77 77  77 77 77 77 77 77 77 77"
+          },
+          {
+            frame_num: 2, time: 0.0022, src: "127.0.0.1:5000", dst: "127.0.0.1:54321",
+            from_node: "server", to_node: "alice", proto: "TLSv1.3", length: 131,
+            info: "Application Data (Encrypted ECCP: MESSAGE_ACK - Delivered to Bob ✅)",
+            layers: {
+              "TLSv1.3 Record Layer": "Application Data (23) - Encrypted Acknowledgment",
+              "ECCP Status": "0x00 (SUCCESS)"
+            },
+            plain: "{\n  \"type\": \"MESSAGE_ACK\",\n  \"status\": \"SUCCESS (0x00)\",\n  \"info\": \"Message routed to Bob\"\n}",
+            hex: "0000   00 1a 2b 3c 4d 5e 5e 4d  3c 2b 1a 00 08 00 45 00\n0010   00 7b 00 dc 40 00 40 06  3b b8 7f 00 00 01 7f 00\n0020   00 01 13 88 d4 31 00 1e  90 20 00 0f 55 b5 50 18\n0030   fa f0 2a 3f 00 00 17 03  03 00 48 88 88 88 88 88"
+          },
+          {
+            frame_num: 3, time: 0.0041, src: "127.0.0.1:5000", dst: "127.0.0.1:54322",
+            from_node: "server", to_node: "bob", proto: "TLSv1.3", length: 215,
+            info: "Application Data (Encrypted ECCP: Server delivers MESSAGE_RECEIVE to Bob)",
+            layers: {
+              "TLSv1.3 Record Layer": "Application Data (23) delivered on Bob's TLS 1.3 socket (port 54322)",
+              "ECCP Layer": "Message routed through thread-safe connection table in Server"
+            },
+            plain: "{\n  \"type\": \"MESSAGE_RECEIVE\",\n  \"sender\": \"Alice\",\n  \"content\": \"Hey Bob! Here is the secret encryption design plan for our CN Mini Project.\"\n}",
+            hex: "0000   00 2b 3c 4d 5e 6f 5e 4d  3c 2b 1a 00 08 00 45 00\n0010   00 d7 00 dd 40 00 40 06  3b 5b 7f 00 00 01 7f 00\n0020   00 01 13 88 d4 32 00 2d  c6 c8 00 3d 0d a8 50 18\n0030   fa f0 51 c0 00 00 17 03  03 00 9c 99 99 99 99 99"
+          }
+        ]
+      },
+      "4": {
+        title: "Secure File Transfer & SHA-256 Checksum",
+        pcap_file: "4_secure_file_transfer.pcap",
+        packets: [
+          {
+            frame_num: 1, time: 0.0000, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "alice", to_node: "server", proto: "TLSv1.3", length: 331,
+            info: "Application Data (Encrypted ECCP: FILE_SEND_REQUEST - 'project_report_final.pdf', 184 KB, SHA-256)",
+            layers: {
+              "File Transfer Metadata": {
+                "Filename": "project_report_final.pdf",
+                "Size": "184,520 bytes (12 chunks)",
+                "Cryptographic Hash": "SHA-256: a3f5b7c9e1d2f4a6b8c0d2e4f6a8b0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4",
+                "Integrity Guarantee": "End-to-end byte reconstruction verified before saving to disk"
+              }
+            },
+            plain: "{\n  \"type\": \"FILE_SEND\",\n  \"recipient\": \"Bob\",\n  \"filename\": \"project_report_final.pdf\",\n  \"file_size\": 184520,\n  \"sha256_checksum\": \"a3f5b7c9e1d2f4a6b8c0...\",\n  \"chunks_total\": 12\n}",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   01 4b 00 82 40 00 40 06  3a e8 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  68 20 00 1e a1 00 50 18\n0030   fa f0 a1 b2 00 00 17 03  03 01 10 aa aa aa aa aa"
+          },
+          {
+            frame_num: 2, time: 0.0028, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "alice", to_node: "server", proto: "TLSv1.3", length: 1514,
+            info: "Application Data (Encrypted ECCP: FILE_CHUNK #1 - 1,460 Bytes Ciphertext)",
+            layers: {
+              "Transport Layer Security": "TLS 1.3 Record Layer - Maximum Transmission Unit Segment (MTU 1500)",
+              "Transmission": "Binary Base64 chunk streamed through TLS 1.3 encrypted tunnel"
+            },
+            plain: "[Binary Encrypted File Slice: Chunk #1 (1,460 bytes Base64 data)]",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   05 dc 00 83 40 00 40 06  36 56 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  69 35 00 1e a1 00 50 18\n0030   fa f0 ff ff 00 00 17 03  03 05 b4 bb bb bb bb bb"
+          },
+          {
+            frame_num: 3, time: 0.0062, src: "127.0.0.1:5000", dst: "127.0.0.1:54321",
+            from_node: "server", to_node: "alice", proto: "TLSv1.3", length: 139,
+            info: "Application Data (Encrypted ECCP: FILE_ACK - SHA-256 Checksum Verified ✅)",
+            layers: {
+              "File Integrity Verification": "Calculated SHA-256 matches header. File committed to received_files/."
+            },
+            plain: "{\n  \"type\": \"FILE_ACK\",\n  \"status\": \"SUCCESS (0x00)\",\n  \"message\": \"File verified and saved to received_files/project_report_final.pdf\",\n  \"sha256_verified\": true\n}",
+            hex: "0000   00 1a 2b 3c 4d 5e 5e 4d  3c 2b 1a 00 08 00 45 00\n0010   00 83 00 e6 40 00 40 06  3b b3 7f 00 00 01 7f 00\n0020   00 01 13 88 d4 31 00 1e  a1 00 00 0f 6f 1b 50 18\n0030   fa f0 c3 10 00 00 17 03  03 00 50 cc cc cc cc cc"
+          }
+        ]
+      },
+      "5": {
+        title: "MITM Attack & Integrity Defense",
+        pcap_file: "5_mitm_tampering_attack.pcap",
+        packets: [
+          {
+            frame_num: 1, time: 0.0000, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "alice", to_node: "wire", proto: "TLSv1.3", length: 155,
+            info: "Application Data (Original Packet: 'Transfer $50 to Bob', HMAC: valid)",
+            layers: {
+              "Original Sender": "Alice sends authentic transaction request with valid HMAC key",
+              "Cryptographic Checksum": "HMAC-SHA256 valid"
+            },
+            plain: "{\n  \"type\": \"MESSAGE_SEND\",\n  \"recipient\": \"Bob\",\n  \"content\": \"Transfer $50 to Bob\",\n  \"session_token\": \"tok_valid_session\"\n}",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   00 93 00 8c 40 00 40 06  3b 9c 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  80 00 00 1e c5 00 50 18\n0030   fa f0 91 aa 00 00 17 03  03 00 60 ee ee ee ee ee"
+          },
+          {
+            frame_num: 2, time: 0.0025, src: "127.0.0.1:54321", dst: "127.0.0.1:5000",
+            from_node: "wire", to_node: "server", proto: "ATTACK", length: 155,
+            info: "⚠️ [MITM TAMPERING DETECTED] Adversary altered ciphertext bytes on the wire!",
+            layers: {
+              "MITM Attack Injection": "Active adversary altered bytes at offset 25-26 without secret key",
+              "Wire Corruption": "Payload signature invalidated in transit"
+            },
+            plain: "[TAMPERED / CORRUPTED CIPHERTEXT ON WIRE]\nAdversary flipped bits: byte[25] ^= 0xff, byte[26] ^= 0xaa.",
+            hex: "0000   5e 4d 3c 2b 1a 00 00 1a  2b 3c 4d 5e 08 00 45 00\n0010   00 93 00 8d 40 00 40 06  3b 9b 7f 00 00 01 7f 00\n0020   00 01 d4 31 13 88 00 0f  80 00 00 1e c5 00 50 18\n0030   fa f0 91 aa 00 00 17 03  03 00 60 ee ee ee ff 44"
+          },
+          {
+            frame_num: 3, time: 0.0048, src: "127.0.0.1:5000", dst: "127.0.0.1:54321",
+            from_node: "server", to_node: "alice", proto: "SECURITY", length: 139,
+            info: "🚨 SECURITY ALERT: HMAC Mismatch (0x07) - Packet Dropped & Socket Reset [TCP RST] 🛡️",
+            layers: {
+              "Security Defense": "ECCP Protocol HMAC Verification failed (StatusCode: 0x07)",
+              "Defense Action": "Server drops corrupted packet immediately and terminates connection with TCP RST"
+            },
+            plain: "{\n  \"type\": \"ERROR\",\n  \"status\": \"CHECKSUM_MISMATCH (0x07)\",\n  \"message\": \"HMAC-SHA256 integrity validation failed! Possible tampering or bit corruption.\"\n}",
+            hex: "0000   00 1a 2b 3c 4d 5e 5e 4d  3c 2b 1a 00 08 00 45 00\n0010   00 83 00 f0 40 00 40 06  3b a8 7f 00 00 01 7f 00\n0020   00 01 13 88 d4 31 00 1e  c5 00 00 0f 80 65 50 18\n0030   fa f0 e2 1a 00 00 17 03  03 00 50 00 00 00 00 00"
+          },
+          {
+            frame_num: 4, time: 0.0055, src: "127.0.0.1:5000", dst: "127.0.0.1:54321",
+            from_node: "server", to_node: "alice", proto: "TCP", length: 54,
+            info: "5000 → 54321 [RST] Connection Reset by Peer due to Security Violation",
+            layers: {
+              "Transmission Control Protocol": "TCP [RST] flag sent. Connection forcefully closed to protect server state."
+            },
+            plain: "TCP RST - Socket Teardown.",
+            hex: "0000   00 1a 2b 3c 4d 5e 5e 4d  3c 2b 1a 00 08 00 45 00\n0010   00 28 00 f1 40 00 40 06  3b 5d 7f 00 00 01 7f 00\n0020   00 01 13 88 d4 31 00 1e  c5 55 00 00 00 00 50 04\n0030   00 00 71 b2 00 00"
+          }
+        ]
+      }
+    };
+
+    // Global Simulator State
+    let currentScenarioKey = "3";
+    let isPlaying = false;
+    let playbackSpeed = 1.0;
+    let currentPacketIndex = -1;
+    let animProgress = 0; // 0 to 1 along flight path
+    let lastTimestamp = 0;
+    let animationFrameId = null;
+
+    // Canvas & Nodes
+    const canvas = document.getElementById("sim-canvas");
+    const ctx = canvas.getContext("2d");
+
+    const NODES = {
+      alice:  { x: 0.15, y: 0.55, label: "Alice (Client 1)", port: ":54321", icon: "💻", color: "#38bdf8" },
+      wire:   { x: 0.40, y: 0.55, label: "TLS Wire / Tap",   port: "Eavesdrop", icon: "🌐", color: "#c084fc" },
+      server: { x: 0.65, y: 0.55, label: "ECCP Gateway",     port: ":5000",   icon: "🏢", color: "#4ade80" },
+      bob:    { x: 0.88, y: 0.55, label: "Bob (Client 2)",   port: ":54322", icon: "📱", color: "#fbbf24" }
+    };
+
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth * window.devicePixelRatio;
+      canvas.height = canvas.parentElement.clientHeight * window.devicePixelRatio;
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener("resize", resizeCanvas);
+
+    // Populate Wireshark Table
+    function renderTable() {
+      const scenario = SCENARIOS[currentScenarioKey];
+      const tbody = document.getElementById("packet-tbody");
+      tbody.innerHTML = "";
+
+      scenario.packets.forEach((p, idx) => {
+        const tr = document.createElement("tr");
+        tr.id = `row-${idx}`;
+        tr.onclick = () => selectPacket(idx);
+
+        const protoClass = `proto-${p.proto.replace(".", "_")}`;
+        tr.innerHTML = `
+          <td>${p.frame_num}</td>
+          <td>${p.time.toFixed(4)}</td>
+          <td>${p.src}</td>
+          <td>${p.dst}</td>
+          <td><span class="proto-badge ${protoClass}">${p.proto}</span></td>
+          <td>${p.length}</td>
+          <td title="${p.info}">${p.info}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.getElementById("packet-count-badge").innerText = `${scenario.packets.length} packets`;
+      if (scenario.packets.length > 0) {
+        selectPacket(0);
+      }
+    }
+
+    // Select & Dissect Packet
+    function selectPacket(index) {
+      const scenario = SCENARIOS[currentScenarioKey];
+      if (index < 0 || index >= scenario.packets.length) return;
+
+      currentPacketIndex = index;
+
+      // Update table selection
+      document.querySelectorAll("#packet-tbody tr").forEach((tr, idx) => {
+        tr.classList.toggle("active-row", idx === index);
+      });
+
+      const pkt = scenario.packets[index];
+
+      // Update DPI Tree
+      const dpiContainer = document.getElementById("dpi-layers-container");
+      dpiContainer.innerHTML = "";
+
+      for (const [layerName, layerData] of Object.entries(pkt.layers)) {
+        const card = document.createElement("div");
+        card.className = "layer-card";
+
+        let bodyHtml = "";
+        if (typeof layerData === "object") {
+          bodyHtml = Object.entries(layerData)
+            .map(([k, v]) => `<div><strong style="color:#7dd3fc;">• ${k}:</strong> ${v}</div>`)
+            .join("");
+        } else {
+          bodyHtml = `<div>${layerData}</div>`;
+        }
+
+        card.innerHTML = `
+          <div class="layer-title">
+            <span>▼ ${layerName}</span>
+          </div>
+          <div class="layer-body">${bodyHtml}</div>
+        `;
+        dpiContainer.appendChild(card);
+      }
+
+      // Update Wire Comparison
+      document.getElementById("wire-plain-content").innerText = pkt.plain || "(No application plaintext payload)";
+      document.getElementById("wire-cipher-content").innerText =
+        `[Over-The-Wire TLS 1.3 Record - Length: ${pkt.length} Bytes]\n` +
+        `Ciphertext Entropy: 7.994 bits/byte (Indistinguishable from pure random noise)\n\n` +
+        pkt.hex;
+
+      // Update Hex Dump
+      document.getElementById("hex-dump-content").innerText = pkt.hex || "No raw bytes available.";
+
+      // Update Status Text
+      document.getElementById("sim-status-text").innerText = `Packet #${pkt.frame_num}: ${pkt.info}`;
+      document.getElementById("flight-detail-text").innerText = `Frame ${pkt.frame_num}/${scenario.packets.length} | ${pkt.src} → ${pkt.dst}`;
+    }
+
+    // Animation Loop
+    function drawSimulation(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const dt = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
+      const w = canvas.parentElement.clientWidth;
+      const h = canvas.parentElement.clientHeight;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 1. Draw Network Links / Cables
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#252b40";
+      ctx.beginPath();
+      ctx.moveTo(w * NODES.alice.x, h * NODES.alice.y);
+      ctx.lineTo(w * NODES.server.x, h * NODES.server.y);
+      ctx.lineTo(w * NODES.bob.x, h * NODES.bob.y);
+      ctx.stroke();
+
+      // Glowing active line
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.3)";
+      ctx.stroke();
+
+      // 2. Draw Nodes
+      for (const [key, n] of Object.entries(NODES)) {
+        const nx = w * n.x;
+        const ny = h * n.y;
+
+        // Outer glow
+        const grad = ctx.createRadialGradient(nx, ny, 10, nx, ny, 32);
+        grad.addColorStop(0, n.color + "33");
+        grad.addColorStop(1, "transparent");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(nx, ny, 34, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Node Circle
+        ctx.fillStyle = "#181b28";
+        ctx.strokeStyle = n.color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(nx, ny, 24, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // Icon inside
+        ctx.font = "18px 'Segoe UI Emoji', sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(n.icon, nx, ny);
+
+        // Label
+        ctx.font = "600 12px 'Inter', sans-serif";
+        ctx.fillStyle = "#f1f5f9";
+        ctx.fillText(n.label, nx, ny + 38);
+
+        // Port
+        ctx.font = "500 10.5px 'Fira Code', monospace";
+        ctx.fillStyle = "#94a3b8";
+        ctx.fillText(n.port, nx, ny + 53);
+      }
+
+      // 3. Draw Traveling Packet
+      const scenario = SCENARIOS[currentScenarioKey];
+      if (currentPacketIndex >= 0 && currentPacketIndex < scenario.packets.length) {
+        const pkt = scenario.packets[currentPacketIndex];
+        const fromNode = NODES[pkt.from_node] || NODES.alice;
+        const toNode = NODES[pkt.to_node] || NODES.server;
+
+        const x1 = w * fromNode.x;
+        const y1 = h * fromNode.y;
+        const x2 = w * toNode.x;
+        const y2 = h * toNode.y;
+
+        const curX = x1 + (x2 - x1) * animProgress;
+        const curY = y1 + (y2 - y1) * animProgress;
+
+        // Packet Aura / Glow
+        const pColor = pkt.proto === "ATTACK" ? "#f87171" :
+                       pkt.proto === "SECURITY" ? "#4ade80" :
+                       pkt.proto === "TLSv1.3" ? "#c084fc" : "#38bdf8";
+
+        const pGrad = ctx.createRadialGradient(curX, curY, 4, curX, curY, 20);
+        pGrad.addColorStop(0, pColor);
+        pGrad.addColorStop(1, "transparent");
+        ctx.fillStyle = pGrad;
+        ctx.beginPath();
+        ctx.arc(curX, curY, 22, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Packet Bubble
+        ctx.fillStyle = pColor;
+        ctx.beginPath();
+        ctx.arc(curX, curY, 9, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Packet Text Tag
+        ctx.font = "600 11px 'Fira Code', monospace";
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(`[${pkt.proto}]`, curX, curY - 18);
+
+        // Progress increment if playing
+        if (isPlaying) {
+          animProgress += dt * 0.8 * playbackSpeed;
+          if (animProgress >= 1.0) {
+            animProgress = 0;
+            // Move to next packet
+            if (currentPacketIndex < scenario.packets.length - 1) {
+              selectPacket(currentPacketIndex + 1);
+            } else {
+              // End of scenario
+              isPlaying = false;
+              updatePlayButton();
+            }
+          }
+        }
+      }
+
+      animationFrameId = requestAnimationFrame(drawSimulation);
+    }
+
+    // Playback Controls
+    function updatePlayButton() {
+      const btn = document.getElementById("btn-play");
+      const dot = document.getElementById("anim-dot");
+      if (isPlaying) {
+        btn.innerHTML = "⏸ Pause";
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn");
+        dot.classList.add("animating");
+      } else {
+        btn.innerHTML = "▶ Play Simulation";
+        btn.classList.add("btn-primary");
+        dot.classList.remove("animating");
+      }
+    }
+
+    document.getElementById("btn-play").onclick = () => {
+      isPlaying = !isPlaying;
+      if (isPlaying && currentPacketIndex === SCENARIOS[currentScenarioKey].packets.length - 1) {
+        selectPacket(0);
+        animProgress = 0;
+      }
+      updatePlayButton();
+    };
+
+    document.getElementById("btn-pause").onclick = () => {
+      isPlaying = false;
+      updatePlayButton();
+    };
+
+    document.getElementById("btn-step").onclick = () => {
+      isPlaying = false;
+      updatePlayButton();
+      const scenario = SCENARIOS[currentScenarioKey];
+      if (currentPacketIndex < scenario.packets.length - 1) {
+        selectPacket(currentPacketIndex + 1);
+        animProgress = 0;
+      } else {
+        selectPacket(0);
+        animProgress = 0;
+      }
+    };
+
+    document.getElementById("btn-reset").onclick = () => {
+      isPlaying = false;
+      updatePlayButton();
+      animProgress = 0;
+      selectPacket(0);
+    };
+
+    document.getElementById("speed-select").onchange = (e) => {
+      playbackSpeed = parseFloat(e.target.value);
+    };
+
+    document.getElementById("scenario-select").onchange = (e) => {
+      currentScenarioKey = e.target.value;
+      isPlaying = false;
+      animProgress = 0;
+      updatePlayButton();
+      renderTable();
+    };
+
+    // Download PCAP
+    document.getElementById("btn-download-pcap").onclick = () => {
+      const scenario = SCENARIOS[currentScenarioKey];
+      const pcapFilename = scenario.pcap_file;
+      // Fetch or download PCAP file
+      window.location.href = `/download_pcap?file=${pcapFilename}`;
+    };
+
+    // Tab Switching
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(btn.getAttribute("data-tab")).classList.add("active");
+      };
+    });
+
+    // Initialize
+    resizeCanvas();
+    renderTable();
+    animationFrameId = requestAnimationFrame(drawSimulation);
+  </script>
+</body>
+</html>

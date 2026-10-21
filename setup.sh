@@ -76,7 +76,7 @@ echo
 
 # Create directory structure
 print_status "Creating directory structure..."
-mkdir -p logs data config
+mkdir -p logs data config received_files pcaps
 print_success "Directories created"
 
 # Install Python dependencies
@@ -213,10 +213,14 @@ echo
 echo "2. In another terminal, start the client:"
 echo "   ${GREEN}python3 src/client/client.py${NC}"
 echo
-echo "3. Register a new account and start chatting!"
+echo "3. Run the interactive Packet Flow Simulator:"
+echo "   ${GREEN}./simulate.sh${NC} (or ${GREEN}python3 src/tools/run_simulator.py${NC})"
+echo
+echo "4. Trace Wireshark packets in terminal:"
+echo "   ${GREEN}python3 src/tools/packet_tracer.py --scenario all${NC}"
 echo
 echo "For Wireshark verification:"
-echo "   ${YELLOW}sudo wireshark${NC}"
+echo "   ${YELLOW}wireshark pcaps/3_encrypted_chat.pcap${NC}"
 echo "   Filter: ${YELLOW}tcp.port == 5000${NC}"
 echo
 echo "Documentation:"

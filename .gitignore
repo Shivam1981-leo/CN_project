@@ -39,6 +39,7 @@ Thumbs.db
 # Test outputs
 test_output/
 *.pcap
+!pcaps/*.pcap
 
 # Received runtime files
 received_files/*

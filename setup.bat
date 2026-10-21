@@ -27,6 +27,7 @@ if not exist "logs" mkdir logs
 if not exist "data" mkdir data
 if not exist "config" mkdir config
 if not exist "received_files" mkdir received_files
+if not exist "pcaps" mkdir pcaps
 echo [OK] Directories verified.
 echo.
 
@@ -52,6 +53,11 @@ if exist "certs\server.crt" (
 )
 echo.
 
+REM Pre-generate Wireshark PCAPs
+echo [*] Generating Wireshark PCAP traces...
+python src\tools\packet_tracer.py --generate-all
+echo.
+
 REM Run all unit test suites
 echo [*] Running full test suite...
 python tests\run_all_tests.py
@@ -69,5 +75,11 @@ echo   python src\client\client.py
 echo.
 echo To run the GUI client:
 echo   python src\client\client_gui.py
+echo.
+echo To run the Packet Flow Simulator (Web UI):
+echo   simulate.bat  (or python src\tools\run_simulator.py)
+echo.
+echo To trace packets in terminal:
+echo   python src\tools\packet_tracer.py --scenario all
 echo.
 pause

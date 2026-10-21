@@ -38,6 +38,9 @@ This project implements a secure messaging and file transfer system between clie
 - 🚫 Protection against replay attacks
 
 ### Testing & Verification
+- 🌐 Interactive Packet Flow Simulation (Visual node-to-node animated packets)
+- 📡 In-app & Terminal Wireshark Packet Tracer with Deep Packet Inspection (DPI)
+- 📥 Authentic Wireshark `.pcap` files for all 5 protocol scenarios
 - 📊 Wireshark packet capture verification
 - ⚠️ Failure condition test cases
 - 📈 Performance benchmarking
@@ -57,10 +60,20 @@ CN_miniproject_Sarode_don/
 │   │   ├── server.py              # Main multi-threaded TLS server
 │   │   ├── auth.py                # Authentication & session handler
 │   │   └── user_db.py             # Thread-safe SQLite user database
-│   └── common/
-│       ├── protocol.py            # ECCP wire protocol & binary framing
-│       ├── crypto_utils.py        # Cryptographic utilities & HMAC
-│       └── message.py             # Message formatting helpers
+│   ├── common/
+│   │   ├── protocol.py            # ECCP wire protocol & binary framing
+│   │   ├── crypto_utils.py        # Cryptographic utilities & HMAC
+│   │   └── message.py             # Message formatting helpers
+│   └── tools/
+│       ├── packet_visualizer.html # Interactive Web Packet Flow Simulation
+│       ├── run_simulator.py       # Simulation HTTP server & launcher
+│       └── packet_tracer.py       # Libpcap 2.4 generator & terminal Wireshark tracer
+├── pcaps/                         # Wireshark-compatible packet captures
+│   ├── 1_tls13_handshake.pcap     # TCP 3-way handshake + TLS 1.3 Key Exchange
+│   ├── 2_user_auth_session.pcap   # bcrypt auth over TLS + session token issuance
+│   ├── 3_encrypted_chat.pcap      # End-to-end encrypted messaging with HMAC
+│   ├── 4_secure_file_transfer.pcap# Chunked file transfer with SHA-256 validation
+│   └── 5_mitm_tampering_attack.pcap# Active tampering detection & TCP RST teardown
 ├── tests/
 │   ├── run_all_tests.py           # Master test suite runner (34 tests)
 │   ├── test_authentication.py     # Auth failure & security tests (10)
@@ -87,6 +100,8 @@ CN_miniproject_Sarode_don/
 ├── logs/                          # Application runtime logs
 ├── received_files/                # Incoming verified file transfers
 ├── requirements.txt               # Python package dependencies
+├── simulate.bat                   # 1-click Windows Packet Simulator launcher
+├── simulate.sh                    # 1-click Linux/Mac Packet Simulator launcher
 ├── setup.bat                      # Windows CMD automated setup script
 ├── setup.ps1                      # Windows PowerShell automated setup script
 ├── setup.sh                       # Linux / macOS automated setup script
@@ -150,6 +165,28 @@ python src/client/client.py
 ```bash
 python src/client/client_gui.py
 ```
+*(Includes embedded Wireshark packet inspector and simulator launcher buttons)*
+
+#### Interactive Packet Flow Simulator & Wireshark Tracer
+Launch the interactive web visualizer with node-to-node animated packets, DPI layers, and wire comparisons:
+```bash
+# Windows
+simulate.bat
+# OR
+python src/tools/run_simulator.py
+
+# Linux / macOS
+./simulate.sh
+# OR
+python3 src/tools/run_simulator.py
+```
+
+#### Terminal Wireshark Packet Tracer
+Trace and dissect protocol packets directly in the terminal:
+```bash
+python src/tools/packet_tracer.py --scenario all
+```
+*(Also generates authentic Wireshark `.pcap` files in `pcaps/` ready to open in Wireshark)*
 
 ---
 

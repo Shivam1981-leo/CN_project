@@ -21,7 +21,7 @@ try {
 
 # Directories
 Write-Host "[*] Creating directories..." -ForegroundColor Blue
-@("logs", "data", "config", "received_files") | ForEach-Object {
+@("logs", "data", "config", "received_files", "pcaps") | ForEach-Object {
     if (-not (Test-Path $_)) {
         New-Item -ItemType Directory -Path $_ | Out-Null
     }
@@ -45,6 +45,10 @@ if (Test-Path "certs\server.crt" -and Test-Path "certs\server.key") {
     Write-Host "[X] Certificate generation failed." -ForegroundColor Red
 }
 
+# Pre-generate Wireshark PCAPs
+Write-Host "[*] Generating Wireshark PCAP traces..." -ForegroundColor Blue
+python src\tools\packet_tracer.py --generate-all
+
 # Run tests
 Write-Host "`n[*] Running full test suite..." -ForegroundColor Blue
 python tests\run_all_tests.py
@@ -54,4 +58,6 @@ Write-Host "  Setup Complete!" -ForegroundColor Cyan
 Write-Host "====================================================================" -ForegroundColor Cyan
 Write-Host "`nStart server:         python src/server/server.py" -ForegroundColor Green
 Write-Host "Start CLI client:     python src/client/client.py" -ForegroundColor Green
-Write-Host "Start GUI client:     python src/client/client_gui.py`n" -ForegroundColor Green
+Write-Host "Start GUI client:     python src/client/client_gui.py" -ForegroundColor Green
+Write-Host "Packet Simulator:     simulate.bat (or python src/tools/run_simulator.py)" -ForegroundColor Cyan
+Write-Host "Packet Tracer CLI:    python src/tools/packet_tracer.py --scenario all`n" -ForegroundColor Cyan

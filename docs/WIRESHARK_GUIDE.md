@@ -29,7 +29,62 @@ This guide demonstrates how to use Wireshark to verify that the Encrypted Client
 ✅ All application data is encrypted  
 ✅ No plaintext usernames, passwords, or messages visible  
 ✅ Protocol uses TLS 1.2 or 1.3  
-✅ Strong cipher suites are negotiated
+✅ Strong cipher suites are negotiated (TLS_AES_256_GCM_SHA384)  
+✅ HMAC-SHA256 message integrity detects active wire tampering  
+
+---
+
+## 🌟 Interactive Packet Flow Simulator & Tracer
+
+This project includes a **real-time visual packet flow simulator** and an **authentic Wireshark PCAP generator**:
+
+### 1. Launching the Interactive Web Simulator
+To launch the interactive visual simulation with animated node-to-node packets and embedded Wireshark trace:
+```bash
+# Windows
+simulate.bat
+# OR
+python src/tools/run_simulator.py
+
+# Linux / macOS
+./simulate.sh
+# OR
+python3 src/tools/run_simulator.py
+```
+This automatically opens `http://127.0.0.1:8080` in your web browser with:
+- **4-Node Animated Topology**: Alice ➔ Wire Tap / Sniffer ➔ ECCP Server ➔ Bob
+- **5 Selectable Scenarios**:
+  1. TLS 1.3 Handshake & Key Exchange
+  2. Secure Authentication (bcrypt over TLS + Session Token)
+  3. End-to-End Encrypted Chat with HMAC
+  4. Secure File Transfer (12 Chunks + SHA-256 verification)
+  5. Active MITM Tampering Attack & Defense
+- **Interactive Wireshark Table**: Click any packet to inspect OSI layers, Hex Dump, and Plaintext vs Ciphertext wire comparison.
+- **One-Click PCAP Download**: Direct download button to open the capture in Wireshark!
+
+### 2. Built-in Terminal Packet Tracer
+If you don't have Wireshark installed, you can trace packets directly in your terminal:
+```bash
+# Trace all 5 scenarios with colored Wireshark-like output
+python src/tools/packet_tracer.py --scenario all
+
+# Deep inspect a specific packet (e.g. Frame #4 Client Hello)
+python src/tools/packet_tracer.py --scenario 1 --inspect 4
+```
+
+### 3. Pre-Generated Authentic PCAP Files
+The project provides genuine standard Libpcap 2.4 `.pcap` files in the `pcaps/` directory that can be opened directly in Wireshark:
+```bash
+wireshark pcaps/1_tls13_handshake.pcap
+wireshark pcaps/2_user_auth_session.pcap
+wireshark pcaps/3_encrypted_chat.pcap
+wireshark pcaps/4_secure_file_transfer.pcap
+wireshark pcaps/5_mitm_tampering_attack.pcap
+```
+To regenerate all PCAP files at any time:
+```bash
+python src/tools/packet_tracer.py --generate-all
+```
 
 ---
 
