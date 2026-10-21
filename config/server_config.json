@@ -1,0 +1,9 @@
+{
+  "host": "localhost",
+  "port": 5000,
+  "cert_file": "certs/server.crt",
+  "key_file": "certs/server.key",
+  "max_clients": 50,
+  "session_timeout": 3600,
+  "log_level": "INFO"
+}

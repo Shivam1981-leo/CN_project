@@ -1,0 +1,7 @@
+{
+  "host": "localhost",
+  "port": 5000,
+  "ca_cert": "certs/server.crt",
+  "connect_timeout": 30,
+  "log_level": "INFO"
+}

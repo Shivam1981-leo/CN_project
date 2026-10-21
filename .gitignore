@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Logs
+logs/*.log
+*.log
+
+# Database
+data/*.db
+*.db
+
+# Certificates (keep in production, ignore in dev)
+# Uncomment if you don't want to commit certs
+# certs/*.key
+# certs/*.crt
+# certs/*.pem
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+test_output/
+*.pcap
+
+# Received runtime files
+received_files/*
+!received_files/.gitkeep
+
+# Keep directory structures
+!logs/.gitkeep
+!data/.gitkeep
