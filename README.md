@@ -150,12 +150,19 @@ python tests/run_all_tests.py
 ### Running the Application
 
 #### Option A: 1-Click Launch Everything (Recommended)
-Double-click `launch_all.bat` or run:
-```cmd
-launch_all.bat
-```
+- **In PowerShell:**
+  ```powershell
+  .\launch_all.ps1
+  # OR
+  .\launch_all.bat
+  ```
+- **In Command Prompt / Double-Click:**
+  Double-click `launch_all.bat` or run:
+  ```cmd
+  launch_all.bat
+  ```
 This automatically opens:
-1. **Server Window** (running on `localhost:5000`)
+1. **Server Window** (running on `localhost:5050`)
 2. **Interactive Live Packet Simulator** (in your default browser at `http://localhost:8080`)
 3. **Client 1 GUI Window** (Register / Login as `alice`)
 4. **Client 2 GUI Window** (Register / Login as `bob`)

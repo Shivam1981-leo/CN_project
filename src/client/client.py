@@ -38,8 +38,23 @@ from common.crypto_utils import CryptoUtils, generate_file_checksum, verify_file
 class SecureClient:
     """Secure client with TLS/SSL encryption"""
 
-    def __init__(self, host: str = 'localhost', port: int = 5000,
+    def __init__(self, host: str = 'localhost', port: int = 5050,
                  ca_cert: str = 'certs/server.crt'):
+        # Check config file if available
+        config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'client_config.json')
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, 'r') as f:
+                    cfg = json.load(f)
+                    if host == 'localhost' and 'host' in cfg:
+                        host = cfg['host']
+                    if port == 5050 and 'port' in cfg:
+                        port = cfg['port']
+                    if ca_cert == 'certs/server.crt' and 'ca_cert' in cfg:
+                        ca_cert = cfg['ca_cert']
+            except Exception:
+                pass
+
         self.host = host
         self.port = port
         self.ca_cert = ca_cert

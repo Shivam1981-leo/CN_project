@@ -57,7 +57,7 @@ logger = logging.getLogger('SecureServer')
 class SecureServer:
     """Secure server with TLS/SSL encryption"""
 
-    def __init__(self, host: str = 'localhost', port: int = 5000,
+    def __init__(self, host: str = 'localhost', port: int = 5050,
                  cert_file: str = 'certs/server.crt',
                  key_file: str = 'certs/server.key'):
         self.host = host
@@ -92,7 +92,18 @@ class SecureServer:
             # Create TCP socket
             self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self.server_socket.bind((self.host, self.port))
+            
+            try:
+                self.server_socket.bind((self.host, self.port))
+            except OSError as err:
+                if getattr(err, 'winerror', None) in (10013, 10048) or err.errno in (98, 48, 10048):
+                    fallback_port = 5050 if self.port != 5050 else 5055
+                    logger.warning(f"Port {self.port} is unavailable/restricted. Trying fallback port {fallback_port}...")
+                    self.port = fallback_port
+                    self.server_socket.bind((self.host, self.port))
+                else:
+                    raise
+
             self.server_socket.listen(5)
 
             # Wrap with SSL/TLS
@@ -537,7 +548,7 @@ def main():
     else:
         config = {
             'host': 'localhost',
-            'port': 5000,
+            'port': 5050,
             'cert_file': 'certs/server.crt',
             'key_file': 'certs/server.key'
         }

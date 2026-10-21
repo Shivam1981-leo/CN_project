@@ -4,8 +4,8 @@ echo ====================================================================
 echo   Launching ECCP Full Chat System + Live Wireshark Simulation
 echo ====================================================================
 echo.
-echo [*] Starting ECCP Server on port 5000...
-start "ECCP Server [Port 5000]" cmd /k "python src\server\server.py"
+echo [*] Starting ECCP Server on port 5050...
+start "ECCP Server [Port 5050]" cmd /k "python src\server\server.py"
 
 echo [*] Waiting 2 seconds for server to initialize...
 timeout /t 2 >nul
@@ -25,7 +25,7 @@ start "ECCP Client 2" cmd /k "python src\client\client_gui.py"
 echo.
 echo ====================================================================
 echo   All Components Launched!
-echo   - 1 Server Window (port 5000)
+echo   - 1 Server Window (port 5050)
 echo   - 1 Web Visualizer (http://localhost:8080)
 echo   - 2 Client GUI Windows (Register/Login as Alice and Bob)
 echo ====================================================================
