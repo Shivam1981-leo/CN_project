@@ -149,44 +149,51 @@ python tests/run_all_tests.py
 
 ### Running the Application
 
-#### Start the Server
+#### Option A: 1-Click Launch Everything (Recommended)
+Double-click `launch_all.bat` or run:
+```cmd
+launch_all.bat
+```
+This automatically opens:
+1. **Server Window** (running on `localhost:5000`)
+2. **Interactive Live Packet Simulator** (in your default browser at `http://localhost:8080`)
+3. **Client 1 GUI Window** (Register / Login as `alice`)
+4. **Client 2 GUI Window** (Register / Login as `bob`)
+
+#### Option B: Step-by-Step Manual Launch
+
+**Terminal 1 — Start the Server:**
 ```bash
 python src/server/server.py
 ```
+*(or run `run_server.bat`)*
 
-Default port: `5000`
-
-#### Start the Client
+**Terminal 2 — Start the Live Web Packet Simulator:**
 ```bash
-python src/client/client.py
+python src/tools/run_simulator.py
 ```
+*(or run `simulate.bat` — opens in browser, select `🔴 LIVE Server Traffic` in dropdown)*
 
-#### GUI Client (Optional)
+**Terminal 3 — Start Client 1 (Alice):**
 ```bash
 python src/client/client_gui.py
 ```
-*(Includes embedded Wireshark packet inspector and simulator launcher buttons)*
+*(or run `run_client.bat` — Register/Login with username `alice`)*
 
-#### Interactive Packet Flow Simulator & Wireshark Tracer
-Launch the interactive web visualizer with node-to-node animated packets, DPI layers, and wire comparisons:
+**Terminal 4 — Start Client 2 (Bob):**
 ```bash
-# Windows
-simulate.bat
-# OR
-python src/tools/run_simulator.py
-
-# Linux / macOS
-./simulate.sh
-# OR
-python3 src/tools/run_simulator.py
+python src/client/client_gui.py
 ```
+*(or run `run_client.bat` in a new window — Register/Login with username `bob`)*
 
-#### Terminal Wireshark Packet Tracer
-Trace and dissect protocol packets directly in the terminal:
-```bash
-python src/tools/packet_tracer.py --scenario all
-```
-*(Also generates authentic Wireshark `.pcap` files in `pcaps/` ready to open in Wireshark)*
+---
+
+### 🔴 Real-Time Live Chat & Live Simulation
+
+When chatting between Alice and Bob:
+1. **In the GUI Window:** The right column features a **Live Wireshark Sniffer Pane**. Every outgoing (`➔ OUT`) and incoming (`⬅ IN`) packet is captured live with frame numbers, TLS 1.3 protocol tags, HMAC integrity check, and complete wire hex dump.
+2. **In the Web Simulator:** Select **`🔴 LIVE Server Traffic (Real-time Live Chat Sniffer)`** from the scenario dropdown. As you send messages or transfer files between Alice and Bob, animated glowing packets visually glide between Alice, the Server, and Bob in real time!
+3. **In Real Wireshark:** You can also open Wireshark and filter on `tcp.port == 5000` to inspect genuine TLS 1.3 encrypted application records on loopback. Or open the pre-generated captures in `pcaps/`.
 
 ---
 
