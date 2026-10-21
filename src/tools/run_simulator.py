@@ -52,6 +52,48 @@ class SimulatorHTTPHandler(SimpleHTTPRequestHandler):
                 self.send_error(500, f"Error reading simulator HTML: {e}")
                 return
 
+        # Live Traffic API Endpoint
+        elif path == "/api/live_packets":
+            since_id = 0
+            try:
+                since_id = int(query.get("since", [0])[0])
+            except Exception:
+                since_id = 0
+
+            traffic_file = os.path.join(_root_dir, "logs", "live_traffic.json")
+            packets = []
+            if os.path.exists(traffic_file):
+                try:
+                    with open(traffic_file, "r", encoding="utf-8") as f:
+                        all_pkts = json.load(f)
+                    packets = [p for p in all_pkts if p.get("frame_num", 0) > since_id]
+                except Exception:
+                    packets = []
+            data_bytes = json.dumps(packets).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Content-Length", str(len(data_bytes)))
+            self.end_headers()
+            self.wfile.write(data_bytes)
+            return
+
+        elif path == "/api/clear_live_packets":
+            traffic_file = os.path.join(_root_dir, "logs", "live_traffic.json")
+            try:
+                with open(traffic_file, "w", encoding="utf-8") as f:
+                    json.dump([], f)
+            except Exception:
+                pass
+            data_bytes = json.dumps({"status": "cleared"}).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data_bytes)))
+            self.end_headers()
+            self.wfile.write(data_bytes)
+            return
+
         # Serve PCAP download
         elif path == "/download_pcap":
             pcap_name = query.get("file", ["1_tls13_handshake.pcap"])[0]

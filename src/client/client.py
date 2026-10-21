@@ -63,6 +63,7 @@ class SecureClient:
         # Optional GUI / event callbacks
         self.on_message_callback = None
         self.on_file_callback = None
+        self.on_packet_callback = None
 
     def connect(self) -> bool:
         """Connect to the server with TLS/SSL"""
@@ -340,6 +341,12 @@ class SecureClient:
             # Send data
             self.socket.sendall(data)
 
+            if self.on_packet_callback:
+                try:
+                    self.on_packet_callback("OUT", message.msg_type.name, length, data, message.data, True)
+                except Exception:
+                    pass
+
     def _read_raw_message(self) -> Optional[bytes]:
         """Low-level socket read of length-prefixed bytes"""
         try:
@@ -377,7 +384,14 @@ class SecureClient:
         if not data:
             return None
         try:
-            return ProtocolMessage.unpack(data, self.protocol_key)
+            res = ProtocolMessage.unpack(data, self.protocol_key)
+            msg, valid = res
+            if self.on_packet_callback:
+                try:
+                    self.on_packet_callback("IN", msg.msg_type.name, len(data), data, msg.data, valid)
+                except Exception:
+                    pass
+            return res
         except Exception:
             return None
 
@@ -390,6 +404,11 @@ class SecureClient:
 
             try:
                 message, checksum_valid = ProtocolMessage.unpack(data, self.protocol_key)
+                if self.on_packet_callback:
+                    try:
+                        self.on_packet_callback("IN", message.msg_type.name, len(data), data, message.data, checksum_valid)
+                    except Exception:
+                        pass
             except Exception:
                 continue
 

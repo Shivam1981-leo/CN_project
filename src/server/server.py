@@ -30,6 +30,11 @@ from common.protocol import (
 from common.crypto_utils import CryptoUtils, SecureSessionManager
 
 try:
+    from common.traffic_logger import traffic_logger
+except ImportError:
+    traffic_logger = None
+
+try:
     from server.user_db import UserDatabase
     from server.auth import AuthenticationHandler
 except (ImportError, ModuleNotFoundError):
@@ -173,6 +178,22 @@ class SecureServer:
                     # Handle message based on type
                     response = self._process_message(message, session_token, username)
 
+                    # Log live incoming packet
+                    if traffic_logger:
+                        from_n = (username.lower() if username and username.lower() in ["alice", "bob"] else "alice")
+                        traffic_logger.log_packet(
+                            src=f"{address[0]}:{address[1]}",
+                            dst=f"{self.host}:{self.port}",
+                            from_node=from_n,
+                            to_node="server",
+                            proto="TLSv1.3",
+                            msg_type_name=message.msg_type.name,
+                            length=len(data),
+                            info=f"[{message.msg_type.name}] from {username or address}",
+                            plain_data=message.data,
+                            raw_bytes=data
+                        )
+
                     # Update session info if authentication was successful
                     if message.msg_type == MessageType.AUTH_REQUEST and response:
                         if response.data.get('status') == StatusCode.SUCCESS.value:
@@ -191,6 +212,20 @@ class SecureServer:
                     # Send response
                     if response:
                         self._send_message(client_socket, response)
+                        if traffic_logger:
+                            to_n = (username.lower() if username and username.lower() in ["alice", "bob"] else "alice")
+                            traffic_logger.log_packet(
+                                src=f"{self.host}:{self.port}",
+                                dst=f"{address[0]}:{address[1]}",
+                                from_node="server",
+                                to_node=to_n,
+                                proto="TLSv1.3",
+                                msg_type_name=response.msg_type.name,
+                                length=len(response.pack(self.protocol_key)),
+                                info=f"Server response [{response.msg_type.name}] to {username or address}",
+                                plain_data=response.data,
+                                raw_bytes=response.pack(self.protocol_key)
+                            )
 
                 except ValueError as e:
                     logger.error(f"Protocol error from {address}: {e}")
@@ -321,6 +356,19 @@ class SecureServer:
                 try:
                     self._send_message(recipient_socket, file_msg)
                     logger.info(f"File '{filename}' ({filesize}B) routed from {sender} to {recipient}")
+                    if traffic_logger:
+                        traffic_logger.log_packet(
+                            src=f"{self.host}:{self.port}",
+                            dst=f"{recipient}:5000",
+                            from_node="server",
+                            to_node=recipient.lower() if recipient.lower() in ["alice", "bob"] else "bob",
+                            proto="TLSv1.3",
+                            msg_type_name="FILE_RECEIVE",
+                            length=len(file_msg.pack(self.protocol_key)),
+                            info=f"Encrypted file '{filename}' ({filesize}B) delivered to '{recipient}'",
+                            plain_data={"sender": sender, "filename": filename, "checksum": checksum, "filesize": filesize},
+                            raw_bytes=file_msg.pack(self.protocol_key)
+                        )
                     return create_file_ack(StatusCode.SUCCESS, filename)
                 except Exception as e:
                     logger.error(f"Failed to route file to {recipient}: {e}")
@@ -354,6 +402,19 @@ class SecureServer:
                     try:
                         self._send_message(recipient_socket, message)
                         logger.info(f"Message delivered from {sender} to {recipient}")
+                        if traffic_logger:
+                            traffic_logger.log_packet(
+                                src=f"{self.host}:{self.port}",
+                                dst=f"{recipient}:5000",
+                                from_node="server",
+                                to_node=recipient.lower() if recipient.lower() in ["alice", "bob"] else "bob",
+                                proto="TLSv1.3",
+                                msg_type_name="MESSAGE_RECEIVE",
+                                length=len(message.pack(self.protocol_key)),
+                                info=f"Encrypted message delivered to '{recipient}': {content[:35]}",
+                                plain_data={"sender": sender, "recipient": recipient, "content": content},
+                                raw_bytes=message.pack(self.protocol_key)
+                            )
                     except Exception as e:
                         logger.error(f"Failed to deliver message: {e}")
                         # Store for offline delivery

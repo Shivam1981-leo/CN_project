@@ -514,6 +514,7 @@
     <div class="scenario-picker">
       <span class="scenario-label">Scenario:</span>
       <select id="scenario-select">
+        <option value="live" style="color: #4ade80; font-weight: bold;">🔴 LIVE Server Traffic (Real-time Live Chat Sniffer)</option>
         <option value="1">1. TLS 1.3 Handshake & Key Exchange (TCP SYN/ACK + Client/Server Hello)</option>
         <option value="2">2. Secure Authentication (bcrypt Hash over TLS + Session Token)</option>
         <option value="3" selected>3. End-to-End Encrypted Chat (Alice → Server → Bob with HMAC)</option>
@@ -631,6 +632,11 @@
   <script>
     // Embedded Scenarios Data
     const SCENARIOS = {
+      "live": {
+        title: "🔴 LIVE Server Traffic (Real-time Live Chat Sniffer)",
+        pcap_file: "3_encrypted_chat.pcap",
+        packets: []
+      },
       "1": {
         title: "TLS 1.3 Handshake & Key Exchange",
         pcap_file: "1_tls13_handshake.pcap",
@@ -1190,10 +1196,44 @@
       playbackSpeed = parseFloat(e.target.value);
     };
 
+    let liveTimer = null;
+    let lastLiveId = 0;
+
+    function pollLivePackets() {
+      if (currentScenarioKey !== "live") return;
+      fetch(`/api/live_packets?since=${lastLiveId}`)
+        .then(r => r.json())
+        .then(pkts => {
+          if (pkts && pkts.length > 0) {
+            pkts.forEach(p => {
+              p.frame_num = SCENARIOS["live"].packets.length + 1;
+              p.time = p.timestamp ? (p.timestamp % 1000) : 0;
+              SCENARIOS["live"].packets.push(p);
+              if (p.frame_num > lastLiveId) lastLiveId = p.frame_num;
+            });
+            renderTable();
+            selectPacket(SCENARIOS["live"].packets.length - 1);
+            animProgress = 0;
+            isPlaying = true;
+            updatePlayButton();
+          }
+        })
+        .catch(() => {});
+    }
+
     document.getElementById("scenario-select").onchange = (e) => {
       currentScenarioKey = e.target.value;
       isPlaying = false;
       animProgress = 0;
+      if (liveTimer) {
+        clearInterval(liveTimer);
+        liveTimer = null;
+      }
+      if (currentScenarioKey === "live") {
+        document.getElementById("sim-status-text").innerText = "🔴 Live Sniffer Active. Send a message in client to trace live packets!";
+        pollLivePackets();
+        liveTimer = setInterval(pollLivePackets, 600);
+      }
       updatePlayButton();
       renderTable();
     };

@@ -11,6 +11,7 @@ import time
 import base64
 import subprocess
 from datetime import datetime
+from typing import Any, Optional, Dict, List
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 
@@ -38,6 +39,15 @@ except ImportError:
         ScenarioEngine = None
         export_all_pcaps = None
 
+try:
+    from common.traffic_logger import traffic_logger, bytes_to_hex_dump
+except ImportError:
+    try:
+        from src.common.traffic_logger import traffic_logger, bytes_to_hex_dump
+    except ImportError:
+        traffic_logger = None
+        bytes_to_hex_dump = None
+
 
 class ModernChatGUI:
     """Modern Tkinter GUI for the ECCP Secure Client"""
@@ -45,8 +55,8 @@ class ModernChatGUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("ECCP Secure Messenger - TLS 1.3")
-        self.root.geometry("880x640")
-        self.root.minsize(720, 500)
+        self.root.geometry("1060x660")
+        self.root.minsize(850, 520)
 
         # Apply dark theme styling
         self._setup_styles()
@@ -264,6 +274,51 @@ class ModernChatGUI:
         open_folder_btn = ttk.Button(input_frame, text="📂 Files", style="Modern.TButton", command=self._open_downloads_folder)
         open_folder_btn.pack(side="left", padx=2)
 
+        # Right: Live Wireshark Packet Sniffer Pane
+        self.sniffer_pane = ttk.Frame(body_paned, style="Panel.TFrame", padding=8, width=340)
+        body_paned.add(self.sniffer_pane, weight=3)
+
+        sniff_hdr = ttk.Frame(self.sniffer_pane, style="Panel.TFrame")
+        sniff_hdr.pack(fill="x", pady=(0, 4))
+
+        ttk.Label(sniff_hdr, text="📡 Live Wireshark Sniffer", font=("Segoe UI", 10, "bold"),
+                  foreground=self.accent, background=self.bg_panel).pack(side="left")
+
+        clear_btn = ttk.Button(sniff_hdr, text="Clear", style="Modern.TButton", command=self._clear_live_sniffer)
+        clear_btn.pack(side="right")
+
+        ttk.Label(self.sniffer_pane, text="Real-time encrypted frames as you chat:",
+                  style="SubHeader.TLabel", background=self.bg_panel).pack(anchor="w", pady=(0, 4))
+
+        # Sniffer Tree
+        sniff_cols = ("dir", "proto", "type", "size", "hmac")
+        self.sniff_tree = ttk.Treeview(self.sniffer_pane, columns=sniff_cols, show="headings", height=8, selectmode="browse")
+        self.sniff_tree.heading("dir", text="Dir")
+        self.sniff_tree.heading("proto", text="Proto")
+        self.sniff_tree.heading("type", text="Type")
+        self.sniff_tree.heading("size", text="Bytes")
+        self.sniff_tree.heading("hmac", text="HMAC")
+
+        self.sniff_tree.column("dir", width=38, anchor="center")
+        self.sniff_tree.column("proto", width=62, anchor="center")
+        self.sniff_tree.column("type", width=125)
+        self.sniff_tree.column("size", width=48, anchor="center")
+        self.sniff_tree.column("hmac", width=60, anchor="center")
+
+        sniff_vsb = ttk.Scrollbar(self.sniffer_pane, orient="vertical", command=self.sniff_tree.yview)
+        self.sniff_tree.configure(yscrollcommand=sniff_vsb.set)
+        self.sniff_tree.pack(fill="x", pady=(0, 6))
+
+        # Sniffer Detail Text
+        ttk.Label(self.sniffer_pane, text="Wire Payload (Hex + Plaintext):", font=("Segoe UI", 9, "bold"),
+                  background=self.bg_panel).pack(anchor="w", pady=(2, 2))
+        self.sniff_detail = tk.Text(self.sniffer_pane, bg=self.bg_chat, fg=self.text_dim, font=("Consolas", 8.5),
+                                    wrap="word", height=8, bd=0, padx=6, pady=6)
+        self.sniff_detail.pack(fill="both", expand=True)
+
+        self.live_packets_cache = []
+        self.sniff_tree.bind("<<TreeviewSelect>>", self._on_sniff_packet_selected)
+
         self._refresh_users()
         self._start_gui_receiver()
 
@@ -405,6 +460,7 @@ class ModernChatGUI:
         """Hook into SecureClient callbacks for thread-safe UI updates"""
         self.client.on_message_callback = lambda sender, content: self.ui_queue.put(("chat_msg", (sender, content)))
         self.client.on_file_callback = lambda sender, filename, is_valid, path: self.ui_queue.put(("file_received", (sender, filename, is_valid, path)))
+        self.client.on_packet_callback = lambda direction, mtype, length, raw_bytes, plain, valid: self.ui_queue.put(("live_packet", (direction, mtype, length, raw_bytes, plain, valid)))
 
     def _process_ui_queue(self):
         """Consume queued events from background worker threads"""
@@ -446,6 +502,10 @@ class ModernChatGUI:
                         "file"
                     )
 
+                elif event_type == "live_packet":
+                    direction, mtype, length, raw_bytes, plain, valid = payload
+                    self._add_live_packet(direction, mtype, length, raw_bytes, plain, valid)
+
                 elif event_type == "system_msg":
                     self._append_chat(payload, "system")
 
@@ -453,6 +513,76 @@ class ModernChatGUI:
                 break
 
         self.root.after(100, self._process_ui_queue)
+
+    def _add_live_packet(self, direction: str, mtype: str, length: int, raw_bytes: bytes, plain: Any, valid: bool):
+        """Append live packet to the in-app Wireshark sniffer tree"""
+        if not hasattr(self, "sniff_tree") or not self.sniff_tree:
+            return
+
+        pkt_id = len(self.live_packets_cache) + 1
+        hmac_status = "Valid ✅" if valid else "FAIL ❌"
+        dir_icon = "➔ OUT" if direction == "OUT" else "⬅ IN"
+
+        # Format hex dump
+        hex_dump = bytes_to_hex_dump(raw_bytes) if bytes_to_hex_dump else ""
+
+        # Format plain text summary
+        plain_str = json.dumps(plain, indent=2) if isinstance(plain, (dict, list)) else str(plain or "")
+
+        pkt_record = {
+            "id": pkt_id,
+            "dir": dir_icon,
+            "proto": "TLSv1.3",
+            "type": mtype,
+            "length": length,
+            "hmac": hmac_status,
+            "hex": hex_dump,
+            "plain": plain_str,
+            "time": datetime.now().strftime("%H:%M:%S")
+        }
+        self.live_packets_cache.append(pkt_record)
+
+        self.sniff_tree.insert("", "end", iid=str(pkt_id), values=(dir_icon, "TLSv1.3", mtype, length, hmac_status))
+
+        # Auto-scroll and select latest packet
+        self.sniff_tree.selection_set(str(pkt_id))
+        self.sniff_tree.see(str(pkt_id))
+        self._show_sniff_detail(pkt_record)
+
+    def _show_sniff_detail(self, pkt: dict):
+        if not hasattr(self, "sniff_detail") or not self.sniff_detail:
+            return
+        self.sniff_detail.config(state="normal")
+        self.sniff_detail.delete("1.0", "end")
+        content = (
+            f"Frame #{pkt['id']} [{pkt['time']}] {pkt['dir']} {pkt['type']} ({pkt['length']} Bytes)\n"
+            f"Protocol: TLSv1.3 / ECCP Wire Record | Integrity: {pkt['hmac']}\n\n"
+            f"--- [ Decrypted Memory Plaintext ] ---\n{pkt['plain']}\n\n"
+            f"--- [ Over-The-Wire Encrypted Hex Dump ] ---\n{pkt['hex']}"
+        )
+        self.sniff_detail.insert("end", content)
+        self.sniff_detail.config(state="disabled")
+
+    def _on_sniff_packet_selected(self, event):
+        sel = self.sniff_tree.selection()
+        if not sel:
+            return
+        try:
+            pkt_id = int(sel[0])
+            matched = [p for p in self.live_packets_cache if p["id"] == pkt_id]
+            if matched:
+                self._show_sniff_detail(matched[0])
+        except Exception:
+            pass
+
+    def _clear_live_sniffer(self):
+        if hasattr(self, "sniff_tree") and self.sniff_tree:
+            self.sniff_tree.delete(*self.sniff_tree.get_children())
+            self.live_packets_cache.clear()
+            if hasattr(self, "sniff_detail") and self.sniff_detail:
+                self.sniff_detail.config(state="normal")
+                self.sniff_detail.delete("1.0", "end")
+                self.sniff_detail.config(state="disabled")
 
     def _open_web_simulator(self):
         """Launch the interactive web-based packet flow simulator"""
