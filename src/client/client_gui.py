@@ -317,10 +317,16 @@ class ModernChatGUI:
         self.sniff_detail.pack(fill="both", expand=True)
 
         self.live_packets_cache = []
-        self.sniff_tree.bind("<<TreeviewSelect>>", self._on_sniff_packet_selected)
-
         self._refresh_users()
         self._start_gui_receiver()
+        self._schedule_auto_refresh()
+
+    def _schedule_auto_refresh(self):
+        """Periodically refresh online users list every 3 seconds"""
+        if self.is_connected and self.chat_frame:
+            self._refresh_users()
+        if getattr(self, 'root', None):
+            self.root.after(3000, self._schedule_auto_refresh)
 
     def _append_chat(self, text: str, tag: str = "system"):
         """Append text to chat history area"""
@@ -334,6 +340,8 @@ class ModernChatGUI:
         selection = self.user_listbox.curselection()
         if selection:
             username = self.user_listbox.get(selection[0])
+            if username.startswith("("):
+                return
             self.active_recipient = username
             self.recipient_lbl.config(text=f"💬 Chatting with: {username}", font=("Segoe UI", 11, "bold"))
 
@@ -483,15 +491,32 @@ class ModernChatGUI:
 
                 elif event_type == "users_list":
                     if self.chat_frame:
+                        active_peers = [u for u in payload if u != self.client.username]
+                        prev_sel = self.active_recipient
                         self.user_listbox.delete(0, "end")
-                        for user in payload:
-                            if user != self.client.username:
+                        if active_peers:
+                            for user in active_peers:
                                 self.user_listbox.insert("end", user)
+                            # Restore selection or auto-select first user
+                            if prev_sel and prev_sel in active_peers:
+                                idx = active_peers.index(prev_sel)
+                                self.user_listbox.selection_set(idx)
+                            else:
+                                self.user_listbox.selection_set(0)
+                                self._on_user_selected(None)
+                        else:
+                            self.user_listbox.insert("end", "(No other users online yet)")
+                            self.recipient_lbl.config(text="Waiting for another user to connect...", font=("Segoe UI", 11, "italic"))
+                            self.active_recipient = None
 
                 elif event_type == "chat_msg":
                     sender, content = payload
                     timestamp = datetime.now().strftime("%H:%M:%S")
-                    self._append_chat(f"[{timestamp}] {sender}: {content}", "peer")
+                    if sender == "SYSTEM":
+                        self._append_chat(f"[{timestamp}] 📢 {content}", "system")
+                        self._refresh_users()
+                    else:
+                        self._append_chat(f"[{timestamp}] {sender}: {content}", "peer")
 
                 elif event_type == "file_received":
                     sender, filename, is_valid, save_path = payload

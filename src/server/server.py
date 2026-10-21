@@ -238,6 +238,11 @@ class SecureServer:
                                 raw_bytes=response.pack(self.protocol_key)
                             )
 
+                    # Broadcast presence when a user successfully authenticates
+                    if message.msg_type == MessageType.AUTH_REQUEST and response:
+                        if response.data.get('status') == StatusCode.SUCCESS.value and username:
+                            self._broadcast_presence(username, joined=True)
+
                 except ValueError as e:
                     logger.error(f"Protocol error from {address}: {e}")
                     response = create_error_response(
@@ -258,6 +263,8 @@ class SecureServer:
                         del self.username_to_token[username]
 
                 self.session_manager.revoke_session(session_token)
+                if username:
+                    self._broadcast_presence(username, joined=False)
 
             client_socket.close()
             logger.info(f"Client {address} disconnected")
@@ -443,6 +450,20 @@ class SecureServer:
             online_users = list(self.username_to_token.keys())
 
         return create_user_list_response(online_users)
+
+    def _broadcast_presence(self, username: str, joined: bool = True):
+        """Notify all active clients that a user has joined or left"""
+        content = f"User '{username}' is now online" if joined else f"User '{username}' went offline"
+        broadcast_msg = create_message_receive("SYSTEM", content)
+        with self.lock:
+            clients = list(self.active_clients.values())
+
+        for sock, u in clients:
+            if u != username:
+                try:
+                    self._send_message(sock, broadcast_msg)
+                except Exception:
+                    pass
 
     def _deliver_offline_messages(self, client_socket: ssl.SSLSocket, username: str):
         """Deliver stored offline messages to user"""

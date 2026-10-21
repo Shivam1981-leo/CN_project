@@ -70,6 +70,7 @@ class SecureClient:
 
         # Lock for thread-safe operations
         self.lock = threading.Lock()
+        self.command_lock = threading.Lock()
 
         # Thread-safe queue for responses to commands
         self.response_queue = queue.Queue()
@@ -215,35 +216,36 @@ class SecureClient:
             print(" Not authenticated")
             return False
 
-        # Create message
-        message = create_message_send(recipient, content, self.session_token)
+        with self.command_lock:
+            # Create message
+            message = create_message_send(recipient, content, self.session_token)
 
-        # Send message
-        self._send_message(message)
+            # Send message
+            self._send_message(message)
 
-        # Receive acknowledgment
-        response = self._receive_message()
-        if not response:
-            print(" No response from server")
-            return False
-
-        message, checksum_valid = response
-
-        if message.msg_type == MessageType.MESSAGE_ACK:
-            status = StatusCode(message.data.get('status'))
-
-            if status == StatusCode.SUCCESS:
-                print(f" Message sent to {recipient}")
-                return True
-            elif status == StatusCode.USER_NOT_FOUND:
-                print(f" User '{recipient}' not found")
+            # Receive acknowledgment
+            response = self._receive_message()
+            if not response:
+                print(" No response from server")
                 return False
+
+            message, checksum_valid = response
+
+            if message.msg_type == MessageType.MESSAGE_ACK:
+                status = StatusCode(message.data.get('status'))
+
+                if status == StatusCode.SUCCESS:
+                    print(f" Message sent to {recipient}")
+                    return True
+                elif status == StatusCode.USER_NOT_FOUND:
+                    print(f" User '{recipient}' not found")
+                    return False
+                else:
+                    print(f" Failed to send message: {status}")
+                    return False
             else:
-                print(f" Failed to send message: {status}")
+                print(f" Unexpected response: {message.msg_type}")
                 return False
-        else:
-            print(f" Unexpected response: {message.msg_type}")
-            return False
 
     def send_file(self, recipient: str, filepath: str) -> bool:
         """Send a file securely to another user"""
@@ -263,44 +265,45 @@ class SecureClient:
         filename = os.path.basename(filepath)
         checksum = generate_file_checksum(filepath)
 
-        try:
-            with open(filepath, 'rb') as f:
-                file_bytes = f.read()
+        with self.command_lock:
+            try:
+                with open(filepath, 'rb') as f:
+                    file_bytes = f.read()
 
-            file_data_b64 = base64.b64encode(file_bytes).decode('utf-8')
+                file_data_b64 = base64.b64encode(file_bytes).decode('utf-8')
 
-            message = create_file_send(
-                recipient=recipient,
-                filename=filename,
-                file_data_base64=file_data_b64,
-                checksum=checksum,
-                session_token=self.session_token,
-                file_size=filesize
-            )
+                message = create_file_send(
+                    recipient=recipient,
+                    filename=filename,
+                    file_data_base64=file_data_b64,
+                    checksum=checksum,
+                    session_token=self.session_token,
+                    file_size=filesize
+                )
 
-            self._send_message(message)
-            response = self._receive_message()
-            if not response:
-                print("❌ No response from server")
+                self._send_message(message)
+                response = self._receive_message()
+                if not response:
+                    print("❌ No response from server")
+                    return False
+
+                resp_msg, checksum_valid = response
+                if resp_msg.msg_type == MessageType.MESSAGE_ACK:
+                    status = StatusCode(resp_msg.data.get('status'))
+                    if status == StatusCode.SUCCESS:
+                        print(f"✅ File '{filename}' sent successfully to {recipient} (SHA-256: {checksum[:12]}...)")
+                        return True
+                    elif status == StatusCode.USER_NOT_FOUND:
+                        print(f"❌ Recipient '{recipient}' not online or not found")
+                        return False
+                    else:
+                        print(f"❌ Failed to send file: {status.name}")
+                        return False
                 return False
 
-            resp_msg, checksum_valid = response
-            if resp_msg.msg_type == MessageType.MESSAGE_ACK:
-                status = StatusCode(resp_msg.data.get('status'))
-                if status == StatusCode.SUCCESS:
-                    print(f"✅ File '{filename}' sent successfully to {recipient} (SHA-256: {checksum[:12]}...)")
-                    return True
-                elif status == StatusCode.USER_NOT_FOUND:
-                    print(f"❌ Recipient '{recipient}' not online or not found")
-                    return False
-                else:
-                    print(f"❌ Failed to send file: {status.name}")
-                    return False
-            return False
-
-        except Exception as e:
-            print(f"❌ Error sending file: {e}")
-            return False
+            except Exception as e:
+                print(f"❌ Error sending file: {e}")
+                return False
 
     def list_users(self) -> list:
         """Get list of online users"""
@@ -308,23 +311,24 @@ class SecureClient:
             print(" Not authenticated")
             return []
 
-        message = ProtocolMessage(MessageType.USER_LIST_REQUEST, {
-            'session_token': self.session_token
-        })
+        with self.command_lock:
+            message = ProtocolMessage(MessageType.USER_LIST_REQUEST, {
+                'session_token': self.session_token
+            })
 
-        self._send_message(message)
+            self._send_message(message)
 
-        response = self._receive_message()
-        if not response:
-            return []
+            response = self._receive_message()
+            if not response:
+                return []
 
-        message, checksum_valid = response
+            message, checksum_valid = response
 
-        if message.msg_type == MessageType.USER_LIST_RESPONSE:
-            users = message.data.get('users', [])
-            return users
-        else:
-            return []
+            if message.msg_type == MessageType.USER_LIST_RESPONSE:
+                users = message.data.get('users', [])
+                return users
+            else:
+                return []
 
     def logout(self):
         """Logout and disconnect"""
@@ -438,7 +442,10 @@ class SecureClient:
                 if self.on_message_callback:
                     self.on_message_callback(sender, content)
                 else:
-                    print(f"\n📨 New message from {sender}: {content}")
+                    if sender == "SYSTEM":
+                        print(f"\n📢 [SYSTEM] {content}")
+                    else:
+                        print(f"\n📨 New message from {sender}: {content}")
                     print("> ", end="", flush=True)
 
             # Incoming file transfer
@@ -531,6 +538,18 @@ class SecureClient:
         print("  logout                     - Logout and exit")
         print()
 
+        # Automatically display online users upon login
+        time.sleep(0.2)
+        initial_users = self.list_users()
+        active_peers = [u for u in initial_users if u != self.username]
+        if active_peers:
+            print("👥 Online users right now:")
+            for u in active_peers:
+                print(f"  • {u}")
+        else:
+            print("👥 No other users online yet. (When someone logs in, they will appear here)")
+        print()
+
         while self.running:
             try:
                 command = input("> ").strip()
@@ -561,13 +580,13 @@ class SecureClient:
 
                 elif cmd == 'list':
                     users = self.list_users()
-                    if users:
+                    active_peers = [u for u in users if u != self.username]
+                    if active_peers:
                         print("\n👥 Online users:")
-                        for user in users:
-                            if user != self.username:
-                                print(f"  • {user}")
+                        for user in active_peers:
+                            print(f"  • {user}")
                     else:
-                        print("No users online")
+                        print("\n👥 No other users online right now")
 
                 elif cmd == 'help':
                     print("\nCommands:")
